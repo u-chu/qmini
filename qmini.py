@@ -4,16 +4,19 @@
 from genericpath import isdir
 import sys, os
 import PyQt5
+#import PySide2
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, QProgressBar,\
-    QToolBar, QAction,  QStyle, QSlider, QWidget, QToolButton, QMenu, QStatusBar, QStyleFactory, \
-    QPushButton, QFileDialog, QListView, QShortcut, QListWidget, QCheckBox
+    QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
+    QPushButton, QFileDialog, QListView, QListWidget, QCheckBox, QShortcut, QWidget, \
+	QMessageBox
 from PyQt5.QtCore import QStringListModel
 from PyQt5.QtGui import QIcon
 import pybass
 import glob
 import time
 import configparser
+#from PySide2.QtWidgets import 
 #import Notify
 
 import mutagen
@@ -24,7 +27,7 @@ from pybass import *
 
 if platform.system().lower() == 'windows':
 	from PyQt5.QtWinExtras import QWinTaskbarProgress, \
-		QWinTaskbarButton
+		QWinTaskbarButton, QWinThumbnailToolBar, QWinThumbnailToolButton
 
 
 
@@ -41,8 +44,8 @@ noti=Notify.Notification()"""
 
 class ListViewW(QMainWindow):
   def __init__(self, parent, x=50, y=200, w=500, h=400):
-    super().__init__()
-    self.pList=QListWidget(parent)
+    super(ListViewW, self).__init__(parent)
+    self.pList=QListWidget()
     # QTableWidget()
     # self.pList.setColumnCount(4)
     # self.pList.setHorizontalHeaderLabels(["artist", "album", "title", "date"])
@@ -60,6 +63,9 @@ class ListViewW(QMainWindow):
     self.cbCloseOnDblClick.setCheckState(QtCore.Qt.Checked)
     hbox.addWidget(self.cbCloseOnDblClick)
     self.destroyed.connect(self.on_destroy)
+    self.sb=QStatusBar(self)
+    self.setStatusBar(self.sb)
+    #QtCore.QMetaObject.connectSlotsByName(self)
     #self.show()
 
   @staticmethod
@@ -68,8 +74,8 @@ class ListViewW(QMainWindow):
 
 
 class QMini(QMainWindow):
- def __init__(self):
-  super().__init__()
+ def __init__(self, *args, **kwargs):
+  super(QMini, self).__init__(*args, **kwargs)
   self.songs=[]
   self.song_ptr=0
   self.cur_handle=None
@@ -78,9 +84,62 @@ class QMini(QMainWindow):
   sk_showplist=QShortcut(self)
   sk_showplist.setKey(QtCore.Qt.Key_P)
   sk_showplist.activated.connect(self.show_playlist)
+  a_help=QShortcut( self)
+  a_help.activated.connect(self.show_help)
+  a_help.setKey(QtCore.Qt.Key_F1)
+  a_help1=QShortcut( self)
+  a_help1.activated.connect(self.show_help)
+  a_help1.setKey(QtCore.Qt.Key_H)
   self.LV=self.LV=ListViewW(self)
   self.destroyed.connect(self.on_destroy)
+  if platform.system().lower() == 'windows':
+    self.wtb=QWinTaskbarButton(self)
+    self.tTB=QWinThumbnailToolBar(self)
+  #QtCore.QMetaObject.connectSlotsByName(self)
   self.initUI()
+  if platform.system().lower() == 'windows':
+    self.initWinUI()
+
+ def show_help(self, e=0):
+  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist\np - show current playlist\n\n", QMessageBox.Ok).exec()
+
+ def showEvent(self, a0: QtGui.QShowEvent):
+  super(QMini, self).showEvent(a0)
+  if not self.wtb:
+    self.wtb.setWindow(self.windowHandle())
+  if not self.tTB:
+    self.tTB.setWindow(self.windowHandle())
+
+ def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+     return super(QMini, self).closeEvent(a0)
+
+ def initWinUI(self):
+  print(platform.system())
+  self.wtbprogress = self.wtb.progress()
+  self.wtbprogress.setRange(0, 100)
+  self.wtbprogress.setValue(55)
+  self.wtbprogress.show()
+  #self.tTB.show()
+  self.pTB1=QWinThumbnailToolButton(self.tTB)
+  self.pTB1.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipBackward))
+  self.pTB1.clicked.connect(self.skip_back)
+  self.pTB2=QWinThumbnailToolButton(self.tTB)
+  self.pTB2.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+  self.pTB2.clicked.connect(self.ppause)
+  self.pTB3=QWinThumbnailToolButton(self.tTB)
+  self.pTB3.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
+  self.pTB3.clicked.connect(self.skip_fwd)
+  """self.pTB4=QWinThumbnailToolButton(self.tTB)
+  self.pTB4.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+  self.pTB4.clicked.connect(self.ppause)
+  self.pTB5=QWinThumbnailToolButton(self.tTB)
+  self.pTB5.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+  self.pTB5.clicked.connect(self.ppause)"""
+  self.tTB.addButton(self.pTB1)
+  self.tTB.addButton(self.pTB2)
+  self.tTB.addButton(self.pTB3)
+  #~ self.tTB.addButton(self.pTB4)
+  #~ self.tTB.addButton(self.pTB5)
 
  def dragEnterEvent(self, e):
   print (e.mimeData().urls(), '\n')
@@ -95,22 +154,24 @@ class QMini(QMainWindow):
   self.LV.setWindowTitle('Playlist')
   self.LV.pList.clear()
   k=0
+  all=0
   for i in self.songs:
+   if not os.path.isfile(i):
+     continue
    b=self.get_tags(i)
-   #print(i)
    a= PyQt5.QtWidgets.QListWidgetItem()
-   """   if k == self.song_ptr:
-    a.setData(0, QtGui.QFont("myFontFamily",Bold=True), QtCore.Qt.FontRole)"""
-   a.setData(QtCore.Qt.DisplayRole, "{0} :: {1} ({2}) :: {3}".format(b[2], b[1], b[3], b[0]))
-   #else:
-    #a.setData(QtCore.Qt.DisplayRole, "{0} :: {1} ({2}) :: {3}".format(b[2], b[1], b[3], b[0]))
+   h=BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_STREAM_AUTOFREE|BASS_SAMPLE_FLOAT|BASS_UNICODE)
+   l=BASS_ChannelGetLength(h, BASS_POS_BYTE)
+   l=BASS_ChannelBytes2Seconds(h, l)
+   all+=l
+   l=time.strftime("%M:%S", time.gmtime(l))
+   a.setData(QtCore.Qt.DisplayRole, "{0} :: {1} ({2}) :: {3} [{4}]".format(b[2], b[1], b[3], b[0], l))
    a.setData(QtCore.Qt.UserRole, k)
-   #a.setData(QtCore.Qt.displ)
-  #  self.LV.pList.setItem(k, 0, a)
    self.LV.pList.addItem(a)
    self.LV.pList.itemDoubleClicked.connect(self.lv1dblClick)
    k+=1
-  # self.LV.pList.itemDoubleClicked.connect(partial(self.lv1dblClick, pl))
+  all="Total: %s"%time.strftime("%H:%M:%S", time.gmtime(all))
+  self.LV.sb.showMessage(all)
   self.LV.show()
 
  def lv1dblClick(self, item=0):
@@ -176,19 +237,19 @@ class QMini(QMainWindow):
   #~ self.statusBar().showMessage('Ready')
   self.setGeometry(50, 300, 500, 50)
   self.setWindowTitle('qmbp')
-  self.setWindowIcon(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaPlay'))))
+  self.setWindowIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
   self.setAcceptDrops(True)
   # Using a title
-  a_rev = QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaSeekBackward'))), 'Rewind', self)
-  a_forw = QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaSeekForward'))), 'Forward', self)
-  a_stop = QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaStop'))), 'Stop', self)
+  a_rev = QAction(self.style().standardIcon(QStyle.SP_MediaSeekBackward), 'Rewind', self)
+  a_forw = QAction(self.style().standardIcon(QStyle.SP_MediaSeekForward), 'Forward', self)
+  a_stop = QAction(self.style().standardIcon(QStyle.SP_MediaStop), 'Stop', self)
   """
   'SP_MediaPause',
   'SP_MediaPlay',
   """
-  self.a_pause = QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaPlay'))), 'Play/Pause', self)
-  a_back = QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaSkipBackward'))), 'Back', self)
-  a_next = QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_MediaSkipForward'))), 'Next', self)
+  self.a_pause = QAction(self.style().standardIcon(QStyle.SP_MediaPlay), 'Play/Pause', self)
+  a_back = QAction(self.style().standardIcon(QStyle.SP_MediaSkipBackward), 'Back', self)
+  a_next = QAction(self.style().standardIcon(QStyle.SP_MediaSkipForward), 'Next', self)
 
   a_stop.triggered.connect(self.pstop)
   self.a_pause.triggered.connect(self.ppause)
@@ -248,14 +309,9 @@ class QMini(QMainWindow):
   #oMenu.addSeparator()
   oMenu.addAction(a_shuffle)
   oMenu.addAction(a_repeat)
-  if platform.system().lower() == 'windows':
-    print(platform.system())
-    self.wtb=QWinTaskbarButton()
-    self.wtbprogress = self.wtb.progress()
-    self.wtbprogress.show()
-    self.wtb.setWindow(self.windowHandle())
-    self.wtbprogress.setRange(0, 100)
-    self.wtbprogress.setValue(55)
+  
+    #self.pTB1.setFlat(True)
+    
    #self.wtbprogress.resume()
 
 
@@ -312,6 +368,8 @@ class QMini(QMainWindow):
   self.show()
   self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
   self.destroyed.connect(self.on_destroy)
+  #self.sb=QStatusBar(self)
+  #self.setStatusBar(self.sb)
   #QApplication.setStyle('Macintosh')
 
  """def add_folders(self):
@@ -441,12 +499,12 @@ class QMini(QMainWindow):
   bcia= BASS_ChannelIsActive(s.cur_handle)
   if bcia==BASS_ACTIVE_PLAYING:
    BASS_ChannelPause(s.cur_handle)
-   s.a_pause.setIcon(QIcon(s.style().standardIcon(getattr(QStyle, 'SP_MediaPlay'))))
+   s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPlay))
    if platform.system().lower() == 'windows':
      s.wtbprogress.setPaused(True)
   elif bcia == BASS_ACTIVE_PAUSED or bcia == BASS_ACTIVE_STALLED:
    BASS_ChannelPlay(s.cur_handle, False)   
-   s.a_pause.setIcon(QIcon(s.style().standardIcon(getattr(QStyle, 'SP_MediaPause'))))
+   s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
    if platform.system().lower() == 'windows':
      s.wtbprogress.setPaused(False)
 
@@ -461,7 +519,7 @@ class QMini(QMainWindow):
     BASS_StreamFree(s.cur_handle)
    s.song_ptr=-1
    s.cur_handle=None
-   s.a_pause.setIcon(QIcon(s.style().standardIcon(getattr(QStyle, 'SP_MediaPlay'))))
+   s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPlay))
    #~ s.abox.set_text("/00:00")
    #~ s.cbox.set_markup("<b>00:00</b>")
    #~ s.hscale.set_value(0)
@@ -523,7 +581,7 @@ class QMini(QMainWindow):
   s.wtbprogress.setMaximum(s.wlen)
 
   a=time.gmtime(secs)
-  s.a_pause.setIcon(QIcon(s.style().standardIcon(getattr(QStyle, 'SP_MediaPause'))))
+  s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
 
 
  def get_tag(self, f, t1):
@@ -532,6 +590,8 @@ class QMini(QMainWindow):
    res=f[t1]
   except:
    res=''
+  if isinstance(res, list):
+    res=res[0]
   return res
 
  def get_tags(self, fname):
@@ -540,7 +600,7 @@ class QMini(QMainWindow):
   if fname.endswith(('.MP3','.mp3')):
    l= self.get_tags_mp3(f)
   else:
-   l= self.get_common(f)
+   l= self.get_tags_common(f)
   return l
 
  def get_tags_common(self, f):
@@ -550,6 +610,7 @@ class QMini(QMainWindow):
   yea=self.get_tag(f, 'year')
   if yea=='':
    yea=self.get_tag(f, 'date')
+  #print(type(alb))
   return (tit, alb, art, yea)
 
  def get_tags_mp3(self, f):
@@ -603,4 +664,4 @@ if __name__ == '__main__':
   #w.setWindowTitle('Simple')
   #w.show()
 
-  sys.exit(app.exec())
+  sys.exit(app.exec_())
