@@ -6,12 +6,11 @@ import sys, os
 import PyQt5
 #import PySide2
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, QProgressBar,\
+from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
     QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
-    QPushButton, QFileDialog, QListView, QListWidget, QCheckBox, QShortcut, QWidget, \
-	QMessageBox
+    QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox
 from PyQt5.QtCore import QStringListModel
-from PyQt5.QtGui import QIcon
+#from PyQt5.QtGui import QIcon
 import pybass
 import glob
 import time
@@ -46,6 +45,7 @@ class ListViewW(QMainWindow):
   def __init__(self, parent, x=50, y=200, w=500, h=400):
     super(ListViewW, self).__init__(parent)
     self.pList=QListWidget()
+    self.pList.setSelectionMode( 3);
     # QTableWidget()
     # self.pList.setColumnCount(4)
     # self.pList.setHorizontalHeaderLabels(["artist", "album", "title", "date"])
@@ -148,13 +148,10 @@ class QMini(QMainWindow):
   else:
    e.ignore()
 
- def show_playlist(self, e=0):
-  if self.LV==None:
-   self.LV=ListViewW(self)
-  self.LV.setWindowTitle('Playlist')
-  self.LV.pList.clear()
+ def read_song_list(self):
   k=0
   all=0
+  self.LV.pList.clear()
   for i in self.songs:
    if not os.path.isfile(i):
      continue
@@ -165,12 +162,22 @@ class QMini(QMainWindow):
    l=BASS_ChannelBytes2Seconds(h, l)
    all+=l
    l=time.strftime("%M:%S", time.gmtime(l))
-   a.setData(QtCore.Qt.DisplayRole, "{0} :: {1} ({2}) :: {3} [{4}]".format(b[2], b[1], b[3], b[0], l))
+   st = "{0} :: {1} ({2}) :: {3} [{4}]".format(b[2], b[1], b[3], b[0], l)
+   if k==self.song_ptr:
+    st='>'+st
+   a.setData(QtCore.Qt.DisplayRole, st)
    a.setData(QtCore.Qt.UserRole, k)
    self.LV.pList.addItem(a)
    self.LV.pList.itemDoubleClicked.connect(self.lv1dblClick)
    k+=1
   all="Total: %s"%time.strftime("%H:%M:%S", time.gmtime(all))
+  return all
+
+ def show_playlist(self, e=0):
+  #if self.LV==None:
+   #self.LV=ListViewW(self)
+  self.LV.setWindowTitle('Playlist')
+  all=self.read_song_list()
   self.LV.sb.showMessage(all)
   self.LV.show()
 
@@ -188,9 +195,12 @@ class QMini(QMainWindow):
   if buf!=0:
    BASS_StreamFree(buf)
    self.songs.append(fname)
+   if self.LV.isVisible():
+    self.read_song_list()
    #~ self.pListModel.setStringList(self.songs)
   else:
    print("BASS_ErrorGetCode= ", BASS_ErrorGetCode(), '; file name= ', fname )
+  
 
 
  def add_from_dir(self, i):
@@ -452,6 +462,8 @@ class QMini(QMainWindow):
   self.cLabel.setText(ct1)
   if bcia==BASS_ACTIVE_STOPPED or pos >= self.wlen:
    self.next_song()
+  #if self.LV.isVisible():
+   # self.read_song_list()
   return True
 
  def prev_song(self, w=None):
@@ -466,6 +478,8 @@ class QMini(QMainWindow):
   else:
    self.song_ptr=-1
    self.pstop()
+  if self.LV.isVisible():
+    self.read_song_list()
 
  def next_song(self, w=None):
   if self.song_ptr< len(self.songs)-1:
@@ -487,6 +501,8 @@ class QMini(QMainWindow):
   else:
    self.song_ptr=-1
    self.pstop()
+  if self.LV.isVisible():
+    self.read_song_list()
 
  def ppause(s,  e):
   if len(s.songs)<=0:
@@ -533,6 +549,8 @@ class QMini(QMainWindow):
    s.timer.stop()
    if platform.system().lower() == 'windows':
      s.wtbprogress.setValue(0)
+  if s.LV.isVisible():
+    s.read_song_list()
    # ~ s.titl_label.set_tooltip_markup("")
 
  def skip_fwd(self, w=None):
