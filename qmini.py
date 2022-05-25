@@ -99,22 +99,23 @@ class QMini(QMainWindow):
   self.initUI()
   if platform.system().lower() == 'windows':
     self.initWinUI()
-
- def show_help(self, e=0):
+    
+ @staticmethod
+ def show_help(self=0, e=0):
   QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist\np - show current playlist\n\n", QMessageBox.Ok).exec()
 
  def showEvent(self, a0: QtGui.QShowEvent):
   super(QMini, self).showEvent(a0)
-  if not self.wtb:
-    self.wtb.setWindow(self.windowHandle())
-  if not self.tTB:
-    self.tTB.setWindow(self.windowHandle())
+  # if not self.wtb:
+  self.wtb.setWindow(self.windowHandle())
+  # if not self.tTB:
+  self.tTB.setWindow(self.windowHandle())
 
  def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
      return super(QMini, self).closeEvent(a0)
 
  def initWinUI(self):
-  print(platform.system())
+#   print(platform.system())
   self.wtbprogress = self.wtb.progress()
   self.wtbprogress.setRange(0, 100)
   self.wtbprogress.setValue(55)
@@ -122,13 +123,13 @@ class QMini(QMainWindow):
   #self.tTB.show()
   self.pTB1=QWinThumbnailToolButton(self.tTB)
   self.pTB1.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipBackward))
-  self.pTB1.clicked.connect(self.skip_back)
+  self.pTB1.clicked.connect(self.prev_song)
   self.pTB2=QWinThumbnailToolButton(self.tTB)
   self.pTB2.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
   self.pTB2.clicked.connect(self.ppause)
   self.pTB3=QWinThumbnailToolButton(self.tTB)
   self.pTB3.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
-  self.pTB3.clicked.connect(self.skip_fwd)
+  self.pTB3.clicked.connect(self.next_song)
   """self.pTB4=QWinThumbnailToolButton(self.tTB)
   self.pTB4.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
   self.pTB4.clicked.connect(self.ppause)
@@ -468,16 +469,16 @@ class QMini(QMainWindow):
 
  def prev_song(self, w=None):
   if self.song_ptr>0:
-   self.song_ptr-=1
-   if self.cur_handle!= None:
+   self.song_ptr-=1   
+  else:
+   self.song_ptr=0
+  if self.cur_handle!= None:
     BASS_ChannelStop(self.cur_handle)
     BASS_StreamFree(self.cur_handle)
     self.cur_handle=None
    #self.stop()
-   self.playfile(self.song_ptr)
-  else:
-   self.song_ptr=-1
-   self.pstop()
+  self.playfile(self.song_ptr)
+  #  self.pstop()
   if self.LV.isVisible():
     self.read_song_list()
 
@@ -504,7 +505,7 @@ class QMini(QMainWindow):
   if self.LV.isVisible():
     self.read_song_list()
 
- def ppause(s,  e):
+ def ppause(s,  e=0):
   if len(s.songs)<=0:
    return
   if s.cur_handle==None:
@@ -518,11 +519,13 @@ class QMini(QMainWindow):
    s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPlay))
    if platform.system().lower() == 'windows':
      s.wtbprogress.setPaused(True)
+     s.pTB2.setIcon(s.style().standardIcon(QStyle.SP_MediaPlay))
   elif bcia == BASS_ACTIVE_PAUSED or bcia == BASS_ACTIVE_STALLED:
    BASS_ChannelPlay(s.cur_handle, False)   
    s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
    if platform.system().lower() == 'windows':
      s.wtbprogress.setPaused(False)
+     s.pTB2.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
 
 
  def pstop(s,  e=0):
@@ -549,6 +552,7 @@ class QMini(QMainWindow):
    s.timer.stop()
    if platform.system().lower() == 'windows':
      s.wtbprogress.setValue(0)
+     s.pTB2.setIcon(s.style().standardIcon(QStyle.SP_MediaPlay))
   if s.LV.isVisible():
     s.read_song_list()
    # ~ s.titl_label.set_tooltip_markup("")
@@ -600,6 +604,8 @@ class QMini(QMainWindow):
 
   a=time.gmtime(secs)
   s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
+  if platform.system().lower()=='windows':
+    s.pTB2.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
 
 
  def get_tag(self, f, t1):
