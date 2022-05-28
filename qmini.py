@@ -5,13 +5,13 @@ from genericpath import isdir
 import sys, os
 import PyQt5
 #import PySide2
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
     QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
-    QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox
+    QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget
 from PyQt5.QtCore import QStringListModel
 #from PyQt5.QtGui import QIcon
-import pybass
+from modpybass import pybass
 import glob
 import time
 import configparser
@@ -19,7 +19,7 @@ import configparser
 #import Notify
 
 import mutagen
-from pybass import *
+from modpybass.pybass import *
 
 #~ print (platform.system())
 #~ print(dir(PyQt5.QtCore))
@@ -45,7 +45,9 @@ class ListViewW(QMainWindow):
   def __init__(self, parent, x=50, y=200, w=500, h=400):
     super(ListViewW, self).__init__(parent)
     self.pList=QListWidget()
-    self.pList.setSelectionMode( 3);
+    self.pList.setSelectionMode( 3)
+    self.pList.setTextElideMode(QtCore.Qt.TextElideMode.ElideRight)
+    # self.pList. .setTextFormat(QtCore.Qt.RichText)
     # QTableWidget()
     # self.pList.setColumnCount(4)
     # self.pList.setHorizontalHeaderLabels(["artist", "album", "title", "date"])
@@ -62,15 +64,14 @@ class ListViewW(QMainWindow):
     self.cbCloseOnDblClick=QCheckBox("Close on take song from playlist")
     self.cbCloseOnDblClick.setCheckState(QtCore.Qt.Checked)
     hbox.addWidget(self.cbCloseOnDblClick)
-    self.destroyed.connect(self.on_destroy)
+    self.destroyed.connect(self.close)
     self.sb=QStatusBar(self)
     self.setStatusBar(self.sb)
+    kb_esc=QShortcut(self)
+    kb_esc.setKey(QtCore.Qt.Key_Escape)
+    kb_esc.activated.connect(self.close)
     #QtCore.QMetaObject.connectSlotsByName(self)
     #self.show()
-
-  @staticmethod
-  def on_destroy(self):
-    self.close()
 
 
 class QMini(QMainWindow):
@@ -81,9 +82,11 @@ class QMini(QMainWindow):
   self.cur_handle=None
   self.timer=QtCore.QTimer()
   self.timer.timeout.connect(self.timer_func)
-  sk_showplist=QShortcut(self)
-  sk_showplist.setKey(QtCore.Qt.Key_P)
-  sk_showplist.activated.connect(self.show_playlist)
+  self.setWindowTitle('QMini')
+  # self.sk_showplist=QShortcut(self)
+  # self.sk_showplist.setKey(QtCore.Qt.Key_P)
+  # self.sk_showplist.activated.connect(self.show_playlist)
+
   a_help=QShortcut( self)
   a_help.activated.connect(self.show_help)
   a_help.setKey(QtCore.Qt.Key_F1)
@@ -102,7 +105,7 @@ class QMini(QMainWindow):
     
  @staticmethod
  def show_help(self=0, e=0):
-  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist\np - show current playlist\n\n", QMessageBox.Ok).exec()
+  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist\nl - load playlist\np - show current playlist\n\n", QMessageBox.Ok).exec()
 
  def showEvent(self, a0: QtGui.QShowEvent):
   super(QMini, self).showEvent(a0)
@@ -110,6 +113,7 @@ class QMini(QMainWindow):
   self.wtb.setWindow(self.windowHandle())
   # if not self.tTB:
   self.tTB.setWindow(self.windowHandle())
+  # ffd77800
 
  def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
      return super(QMini, self).closeEvent(a0)
@@ -167,6 +171,9 @@ class QMini(QMainWindow):
    if k==self.song_ptr:
     st='>'+st
    a.setData(QtCore.Qt.DisplayRole, st)
+  #  ff=a.getFont()
+  #  a.setData(QtCore.Qt.UserRole, st)
+  #  a.setData(0, QFont(bold=True), Qt.FontRole)
    a.setData(QtCore.Qt.UserRole, k)
    self.LV.pList.addItem(a)
    self.LV.pList.itemDoubleClicked.connect(self.lv1dblClick)
@@ -269,8 +276,10 @@ class QMini(QMainWindow):
   a_back.triggered.connect(self.prev_song)
   a_next.triggered.connect(self.next_song)
 
-  a_shuffle=QAction('Shuffle', self)
+  a_shuffle=QAction('Shuffle', self)  
   a_repeat=QAction('Repeat', self)
+  a_consume=QAction('Consume', self)
+  a_clear_playlist=QAction('Clear playlist', self)
   #exitAction.setShortcut('Ctrl+Q')
   #exitAction.triggered.connect(qApp.quit)
 
@@ -313,13 +322,22 @@ class QMini(QMainWindow):
   a_openfile.triggered.connect(self.add_files)
   a_openfolder=QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_DirOpenIcon'))), 'Add folder(s)', self)
   a_openfolder.triggered.connect(self.add_folders)"""
+
+  a_show_playlist=QAction('Show playlist', self)
+  a_show_playlist.setShortcut(QtCore.Qt.Key_P);
+  a_show_playlist.triggered.connect(self.show_playlist)
+  a_clear_playlist.triggered.connect(self.clear_playlist)
   oMenu=QMenu('Options')
   #oMenu.addAction(a_openfile)
 
   #oMenu.addAction(a_openfolder)
   #oMenu.addSeparator()
+  oMenu.addAction(a_consume)
   oMenu.addAction(a_shuffle)
   oMenu.addAction(a_repeat)
+  oMenu.addSeparator()
+  oMenu.addAction(a_show_playlist)
+  oMenu.addAction(a_clear_playlist)
   
     #self.pTB1.setFlat(True)
     
@@ -351,6 +369,8 @@ class QMini(QMainWindow):
   a_repeat.triggered.connect(lambda x: not x, self.repeat)
   self.random=False
   a_shuffle.triggered.connect(lambda x: not x, self.random)
+  self.consume=False
+  a_consume.triggered.connect(lambda x: not x, self.consume)
 
   #pShuffle=QCheckBox("Shuffle")
   #pRandom=QCheckBox("Random")
@@ -363,6 +383,7 @@ class QMini(QMainWindow):
   #a_openfile.resize(QtCore.QSize(16, 16))
   self.titl_label=QLabel('')
   self.titl_label.setTextFormat(QtCore.Qt.RichText)
+  self.titl_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
   #hbox.addWidget(a_openfile)
   hbox.addWidget(self.titl_label)
   #
@@ -382,6 +403,11 @@ class QMini(QMainWindow):
   #self.sb=QStatusBar(self)
   #self.setStatusBar(self.sb)
   #QApplication.setStyle('Macintosh')
+
+ def clear_playlist(self, w=0):
+  self.pstop()
+  self.songs*=0
+  pass
 
  """def add_folders(self):
   folders=QFileDialog.getExistingDirectory(self, "Add folder(s)", "", QFileDialog.ShowDirsOnly)
@@ -547,8 +573,9 @@ class QMini(QMainWindow):
    #~ s.toolbar.get_nth_item(4).set_stock_id(gtk.STOCK_MEDIA_PLAY)
    #~ s.set_scale_slider(0)
    s.titl_label.setText('')
-   s.aLabel.setText('')
-   s.cLabel.setText('')
+   s.aLabel.setText('/00:00')
+   s.cLabel.setText('<b>00:00</b>')
+   s.setWindowTitle('QMini')
    s.timer.stop()
    if platform.system().lower() == 'windows':
      s.wtbprogress.setValue(0)
@@ -592,6 +619,7 @@ class QMini(QMainWindow):
   a=s.get_tags(fname)
 
   s.titl_label.setText("<b>%s</b> - <i>%s</i> - %s (%s)"%(a[0], a[2], a[1], a[3]))
+  s.setWindowTitle("QMini - %s :: %s :: %s (%s)"%(a[0], a[2], a[1], a[3]))
   BASS_ChannelPlay(s.cur_handle, False)
   s.timer.start()
 
@@ -682,6 +710,7 @@ if __name__ == '__main__':
 
   app = QApplication(sys.argv)
   ex = QMini()
+  ex.setWindowTitle('QMini')
   #w = QWidget()
   #w.resize(250, 150)
   #w.move(300, 300)
