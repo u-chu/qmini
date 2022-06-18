@@ -1,28 +1,34 @@
 #!/usr/bin/env python
 #-*- coding: UTF-8 -*-
 
-from genericpath import isdir
+# from genericpath import isdir
 import sys, os
-import PyQt5
-#import PySide2
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
-    QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
-    QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget
-from PyQt5.QtCore import QStringListModel
-#from PyQt5.QtGui import QIcon
+try:
+    # import PySide3
+    from PySide2 import QtCore, QtGui, QtWidgets
+    from PySide2.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
+        QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
+        QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget, QListWidgetItem, \
+        QAbstractItemView, QHBoxLayout
+    from PySide2.QtCore import QStringListModel, QObject, SIGNAL
+except:
+    # import PyQt5
+    from PyQt5 import QtCore, QtGui, QtWidgets
+    from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
+        QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
+        QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget, QListWidgetItem, \
+        QAbstractItemView, QHBoxLayout
+    from PyQt5.QtCore import QStringListModel, QObject
+    # , SIGNAL
 from modpybass import pybass
 import glob
 import time
 import configparser
-#from PySide2.QtWidgets import 
+#from PyQt5.QtWidgets import 
 #import Notify
 
 import mutagen
 from modpybass.pybass import *
-
-#~ print (platform.system())
-#~ print(dir(PyQt5.QtCore))
 
 if platform.system().lower() == 'windows':
 	from PyQt5.QtWinExtras import QWinTaskbarProgress, \
@@ -44,89 +50,130 @@ noti=Notify.Notification()"""
 class ListViewW(QMainWindow):
   def __init__(self, parent, x=50, y=200, w=500, h=400):
     super(ListViewW, self).__init__(parent)
-    self.pList=QListWidget()
-    self.pList.setSelectionMode( 3)
-    self.pList.setTextElideMode(QtCore.Qt.TextElideMode.ElideRight)
-    # self.pList. .setTextFormat(QtCore.Qt.RichText)
-    # QTableWidget()
-    # self.pList.setColumnCount(4)
-    # self.pList.setHorizontalHeaderLabels(["artist", "album", "title", "date"])
-    # QListWidget()
+    self.parent=parent
+
     hbox=QVBoxLayout()
+    vbox=QHBoxLayout()
     self.pListModel=QStringListModel([])
     # self.pList.setModel(self.pListModel)
-    hbox.addWidget(self.pList)
-    # self.set
     wdg = QWidget()
+    self.pList=QListWidget(wdg)
+    self.pList.setSelectionMode( QAbstractItemView.ExtendedSelection)
+    self.pList.setTextElideMode(QtCore.Qt.TextElideMode.ElideRight)
+    hbox.addWidget(self.pList)
+
     wdg.setLayout(hbox);
     self.setCentralWidget(wdg)
     self.setGeometry(x, y, w, h)
-    self.cbCloseOnDblClick=QCheckBox("Close on take song from playlist")
+    self.cbCloseOnDblClick=QCheckBox("Close on take song from playlist", self)
     self.cbCloseOnDblClick.setCheckState(QtCore.Qt.Checked)
     hbox.addWidget(self.cbCloseOnDblClick)
+    hbox.addLayout(vbox)
+    cbConsume=QCheckBox("Consume", wdg)
+    cbRandom=QCheckBox("Random", wdg)
+    cbRepeat=QCheckBox("Repeat", wdg)
+    cbConsume.setChecked(self.parent.consume)
+    # f=lambda x: (self.parent.consume = not self.parent.consume)
+    # QObject.connect(cbConsume, SIGNAL('triggered(bool)'), f, True)
+    QObject.connect(cbConsume, SIGNAL('stateChamged(int)'), self.cb_changed)
+    cbConsume.stateChanged.connect(self.cb_changed)
+    # cbConsume.stateChanged.connect(lambda x: not x, self.parent.consume)
+    # cbConsume.toggled.connect(lambda x: not x, self.parent.consume)
+    # cbRandom.toggled.connect(lambda x: not x, self.parent.random)
+    # cbRepeat.toggled.connect(lambda x: not x, self.parent.repeat)
+    vbox.addWidget(cbConsume)
+    vbox.addWidget(cbRandom)
+    vbox.addWidget(cbRepeat)
+    
     self.destroyed.connect(self.close)
     self.sb=QStatusBar(self)
     self.setStatusBar(self.sb)
-    kb_esc=QShortcut(self)
-    kb_esc.setKey(QtCore.Qt.Key_Escape)
-    kb_esc.activated.connect(self.close)
-    #QtCore.QMetaObject.connectSlotsByName(self)
-    #self.show()
+    kb_del=QShortcut(self.pList )
+    kb_del.setKey(QtGui.QKeySequence("Del"))
+      # QtCore.Qt.Key_Delete)
+    kb_del.activated.connect(self.delete_pos)
+
+  def cb_changed(self, state):
+    print(state)
+  
+  def delete_pos(self, e=0):
+   for i in self.pList.selectedItems():
+     a=i.data(QtCore.Qt.UserRole)
+     self.parent.songs[a]=''
+    # print()
+  #  print(self, e)
+   self.parent.read_song_list()
+#    print(len(self.parent.songs))
 
 
 class QMini(QMainWindow):
  def __init__(self, *args, **kwargs):
   super(QMini, self).__init__(*args, **kwargs)
   self.songs=[]
+  print(len(self.songs))
   self.song_ptr=0
   self.cur_handle=None
   self.timer=QtCore.QTimer()
   self.timer.timeout.connect(self.timer_func)
   self.setWindowTitle('QMini')
+  self.repeat=False
+  self.random=False
+  self.consume=False
+  self.initUI()
+  if platform.system().lower() == 'windows':
+    self.wtb=QWinTaskbarButton()
+    self.tTB=QWinThumbnailToolBar()
+    # print (self)
+    # if not self.wtb.window(): self.wtb.setWindow(self.windowHandle())
+    # if not self.tTB.window(): self.tTB.setWindow(self.windowHandle())
+    self.initWinUI()
   # self.sk_showplist=QShortcut(self)
   # self.sk_showplist.setKey(QtCore.Qt.Key_P)
   # self.sk_showplist.activated.connect(self.show_playlist)
 
   a_help=QShortcut( self)
   a_help.activated.connect(self.show_help)
-  a_help.setKey(QtCore.Qt.Key_F1)
+  a_help.setKey(QtGui.QKeySequence("F1"))
+    # PyQt5.QtCore.Qt.Key_F1)
   a_help1=QShortcut( self)
   a_help1.activated.connect(self.show_help)
-  a_help1.setKey(QtCore.Qt.Key_H)
+  a_help1.setKey(QtGui.QKeySequence("h"))
+    # QtCore.Qt.Key_H)
   self.LV=self.LV=ListViewW(self)
   self.destroyed.connect(self.on_destroy)
-  if platform.system().lower() == 'windows':
-    self.wtb=QWinTaskbarButton(self)
-    self.tTB=QWinThumbnailToolBar(self)
+  # if platform.system().lower() == 'windows':
+    # self.wtb=QWinTaskbarButton()
+    # self.tTB=QWinThumbnailToolBar()
   #QtCore.QMetaObject.connectSlotsByName(self)
-  self.initUI()
-  if platform.system().lower() == 'windows':
-    self.initWinUI()
+  
     
- @staticmethod
+ @staticmethod   
  def show_help(self=0, e=0):
-  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist\nl - load playlist\np - show current playlist\n\n", QMessageBox.Ok).exec()
+  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
 
  def showEvent(self, a0: QtGui.QShowEvent):
   super(QMini, self).showEvent(a0)
   # if not self.wtb:
-  self.wtb.setWindow(self.windowHandle())
-  # if not self.tTB:
-  self.tTB.setWindow(self.windowHandle())
+  if platform.system().lower() == 'windows':
+    if not self.wtb.window(): self.wtb.setWindow(self.windowHandle())
+    if not self.tTB.window(): self.tTB.setWindow(self.windowHandle())
   # ffd77800
 
  def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
      return super(QMini, self).closeEvent(a0)
 
+ 
  def initWinUI(self):
-#   print(platform.system())
   self.wtbprogress = self.wtb.progress()
-  self.wtbprogress.setRange(0, 100)
-  self.wtbprogress.setValue(55)
+  self.wtbprogress.setRange(0, 0)
+  self.wtbprogress.setValue(0)
   self.wtbprogress.show()
   #self.tTB.show()
   self.pTB1=QWinThumbnailToolButton(self.tTB)
   self.pTB1.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipBackward))
+  
+  #~ self.pTB1.setIcon(self.style().standardIcon(QStyle.SP_MediaPause))
+  
   self.pTB1.clicked.connect(self.prev_song)
   self.pTB2=QWinThumbnailToolButton(self.tTB)
   self.pTB2.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
@@ -134,12 +181,7 @@ class QMini(QMainWindow):
   self.pTB3=QWinThumbnailToolButton(self.tTB)
   self.pTB3.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
   self.pTB3.clicked.connect(self.next_song)
-  """self.pTB4=QWinThumbnailToolButton(self.tTB)
-  self.pTB4.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
-  self.pTB4.clicked.connect(self.ppause)
-  self.pTB5=QWinThumbnailToolButton(self.tTB)
-  self.pTB5.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
-  self.pTB5.clicked.connect(self.ppause)"""
+
   self.tTB.addButton(self.pTB1)
   self.tTB.addButton(self.pTB2)
   self.tTB.addButton(self.pTB3)
@@ -157,36 +199,38 @@ class QMini(QMainWindow):
   k=0
   all=0
   self.LV.pList.clear()
-  for i in self.songs:
+  for i in self.songs:   
    if not os.path.isfile(i):
+     k+=1
      continue
    b=self.get_tags(i)
-   a= PyQt5.QtWidgets.QListWidgetItem()
-   h=BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_STREAM_AUTOFREE|BASS_SAMPLE_FLOAT|BASS_UNICODE)
+   a= QListWidgetItem()
+   h=BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE)
    l=BASS_ChannelGetLength(h, BASS_POS_BYTE)
    l=BASS_ChannelBytes2Seconds(h, l)
+   BASS_StreamFree(h)
    all+=l
    l=time.strftime("%M:%S", time.gmtime(l))
    st = "{0} :: {1} ({2}) :: {3} [{4}]".format(b[2], b[1], b[3], b[0], l)
+  #  print(k, self.song_ptr)
    if k==self.song_ptr:
     st='>'+st
+   else:
+     st=" "+st
    a.setData(QtCore.Qt.DisplayRole, st)
-  #  ff=a.getFont()
-  #  a.setData(QtCore.Qt.UserRole, st)
-  #  a.setData(0, QFont(bold=True), Qt.FontRole)
    a.setData(QtCore.Qt.UserRole, k)
    self.LV.pList.addItem(a)
    self.LV.pList.itemDoubleClicked.connect(self.lv1dblClick)
    k+=1
   all="Total: %s"%time.strftime("%H:%M:%S", time.gmtime(all))
-  return all
+  self.LV.sb.showMessage(all)
+  # return all
 
  def show_playlist(self, e=0):
   #if self.LV==None:
    #self.LV=ListViewW(self)
   self.LV.setWindowTitle('Playlist')
-  all=self.read_song_list()
-  self.LV.sb.showMessage(all)
+  self.read_song_list()
   self.LV.show()
 
  def lv1dblClick(self, item=0):
@@ -194,7 +238,8 @@ class QMini(QMainWindow):
     BASS_ChannelStop(self.cur_handle)
     BASS_StreamFree(self.cur_handle)
     self.cur_handle=None
-   self.playfile(item.data(QtCore.Qt.UserRole))
+   self.song_ptr =  item.data(QtCore.Qt.UserRole)
+   self.playfile(self.song_ptr)
    if self.LV.cbCloseOnDblClick.checkState() == QtCore.Qt.Checked:
     self.LV.hide()
    
@@ -203,13 +248,31 @@ class QMini(QMainWindow):
   if buf!=0:
    BASS_StreamFree(buf)
    self.songs.append(fname)
+   print(len(self.songs))
    if self.LV.isVisible():
     self.read_song_list()
    #~ self.pListModel.setStringList(self.songs)
   else:
    print("BASS_ErrorGetCode= ", BASS_ErrorGetCode(), '; file name= ', fname )
   
-
+ def add_from_m3u(self, fn):
+  a=os.path.split(fn)[0]
+  with open(fn) as m3ufile:
+   for line in m3ufile:
+    line = line.strip()
+    linepath = os.path.join(a, line)
+    # print(linepath)
+    if os.path.isdir(line):
+    #  QMessageBox(QMessageBox.Information, "Help", line, QMessageBox.Ok).exec() 
+    #  print(line) 
+     self.add_songs_from_dir(line)
+    elif os.path.isdir(linepath):      
+     self.add_songs_from_dir(linepath)
+    elif os.path.exists(linepath):
+     self.songs.append(linepath) 
+    elif os.path.exists(a):
+     self.songs.append(a)
+    
 
  def add_from_dir(self, i):
   for r, d, f in os.walk(i):
@@ -236,15 +299,12 @@ class QMini(QMainWindow):
      if (os.path.isdir(i)):
       self.add_from_dir(i)
      else:
-      self.add_file_to_list(i)
-      """buf = BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE)
-      print(buf)
-      if buf!=0:
-       BASS_StreamFree(buf)
-       self.songs.append(i)
+      e=i[-4:].lower()
+      if e=='.m3u':
+       self.add_from_m3u(i)
       else:
-       print(BASS_ErrorGetCode())"""
-   print (self.songs)
+       self.add_file_to_list(i)
+   #~ print (self.songs)
    if(self.song_ptr<=0):
     self.song_ptr=0
    if self.cur_handle==None:
@@ -296,7 +356,6 @@ class QMini(QMainWindow):
   ptToolbar.addAction(a_back)
   ptToolbar.addAction(a_next)
 
-
   self.hscale=QSlider(QtCore.Qt.Horizontal)
   self.hscale.setTickInterval(10);
   self.hscale.setSingleStep(1);
@@ -324,7 +383,8 @@ class QMini(QMainWindow):
   a_openfolder.triggered.connect(self.add_folders)"""
 
   a_show_playlist=QAction('Show playlist', self)
-  a_show_playlist.setShortcut(QtCore.Qt.Key_P);
+  a_show_playlist.setShortcut(QtGui.QKeySequence("p"))
+    # QtCore.Qt.Key_P);
   a_show_playlist.triggered.connect(self.show_playlist)
   a_clear_playlist.triggered.connect(self.clear_playlist)
   oMenu=QMenu('Options')
@@ -338,39 +398,20 @@ class QMini(QMainWindow):
   oMenu.addSeparator()
   oMenu.addAction(a_show_playlist)
   oMenu.addAction(a_clear_playlist)
-  
-    #self.pTB1.setFlat(True)
-    
-   #self.wtbprogress.resume()
+  oMenu.addSeparator()
+  am=oMenu.addMenu('Styles')
+  for s in QtWidgets.QStyleFactory.keys():
+    a=am.addAction(s)
+    # a.triggered.connect(self.set_style, s)
 
-
-  """sMenu=oMenu.addMenu('Styles')
-  sPlastic= QAction('Plastic', self)
-  sMac=QAction('Mac', self)
-  sWindows=QAction('Windows', self)
-  sWindowsXP=QAction('Windows XP', self)
-  sWindowsVista=QAction('Windows Vista', self)
-  sCleanlooks=QAction('Cleanlooks', self)
-  sMotif=QAction('Motif', self)
-  sCustom=QAction('Cutsom style', self)
-  sMenu.addAction(sPlastic)
-  sMenu.addAction(sMac)
-  sMenu.addAction(sWindows)
-  sMenu.addAction(sWindowsXP)
-  sMenu.addAction(sWindowsVista)
-  sMenu.addAction(sCleanlooks)
-  sMenu.addAction(sMotif)
-  sMenu.addSeparator()
-  sMenu.addAction(sCustom)"""
   menuToolButton.setMenu(oMenu)
   #sWindows.triggered.connect(self.set_style, 'Fusion')
   #sWindows.triggered.connect(lambda x:QApplication.setStyle(x), 'Fusion')
-  self.repeat=False
-  a_repeat.triggered.connect(lambda x: not x, self.repeat)
-  self.random=False
-  a_shuffle.triggered.connect(lambda x: not x, self.random)
-  self.consume=False
-  a_consume.triggered.connect(lambda x: not x, self.consume)
+  # a_repeat.triggered.connect(lambda x: not x, self.repeat)
+  # a_shuffle.triggered.connect(lambda x: not x, self.random)
+  # a_consume.triggered.connect(lambda x: not x, self.consume)
+  # (self.toggle_check_menu_item, self.consume, a_consume)
+    # )
 
   #pShuffle=QCheckBox("Shuffle")
   #pRandom=QCheckBox("Random")
@@ -384,6 +425,7 @@ class QMini(QMainWindow):
   self.titl_label=QLabel('')
   self.titl_label.setTextFormat(QtCore.Qt.RichText)
   self.titl_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+  self.titl_label.setAlignment(QtCore.Qt.AlignLeft)
   #hbox.addWidget(a_openfile)
   hbox.addWidget(self.titl_label)
   #
@@ -404,10 +446,18 @@ class QMini(QMainWindow):
   #self.setStatusBar(self.sb)
   #QApplication.setStyle('Macintosh')
 
+ def toggle_check_menu_item(self, a, x):
+  a = not a
+  x.setCheckable(a)
+
+ def set_style(self, new_style):
+   QApplication.setStyle(new_style)
+
  def clear_playlist(self, w=0):
   self.pstop()
   self.songs*=0
-  pass
+  if self.LV.isVisible():
+    self.read_song_list()
 
  """def add_folders(self):
   folders=QFileDialog.getExistingDirectory(self, "Add folder(s)", "", QFileDialog.ShowDirsOnly)
@@ -711,6 +761,8 @@ if __name__ == '__main__':
   app = QApplication(sys.argv)
   ex = QMini()
   ex.setWindowTitle('QMini')
+  # print(PyQt5.QtWidgets.QStyleFactory.keys())
+  # app.setStyle('windowsvista')
   #w = QWidget()
   #w.resize(250, 150)
   #w.move(300, 300)
