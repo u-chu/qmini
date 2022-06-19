@@ -152,8 +152,8 @@ class QMini(QMainWindow):
   
     
 #  @staticmethod   
- def show_help(self=0, e=0):
-  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
+ """def show_help(self=0, e=0):
+  QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()"""
 
  def showEvent(self, a0: QtGui.QShowEvent):
   super(QMini, self).showEvent(a0)
@@ -275,7 +275,13 @@ class QMini(QMainWindow):
     self.LV.hide()
    
  def add_file_to_list(self, fname):
-  buf = BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE)
+  # buf=0
+  print(u'%s'%fname)
+  # if platform.system().lower()=='windows':
+  buf = BASS_StreamCreateFile(False, fname, 0,0, 0)
+  # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
+  # else:
+    # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT)
   if buf!=0:
    BASS_StreamFree(buf)
    self.songs.append(fname)
@@ -313,7 +319,7 @@ class QMini(QMainWindow):
      if(os.path.isdir(fname)):
       self.add_from_dir(fname)
      else:
-      self.add_file_to_list(fname)
+      self.add_file_to_list(os.path.realpath(fname))
      """buf = BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE)
      print (buf)
      if buf!=0:
@@ -322,24 +328,30 @@ class QMini(QMainWindow):
      else:
        print(BASS_ErrorGetCode())"""
 
+ def dragEnterEvent(self, e):
+  if e.mimeData().hasFormat('text/uri-list'):
+    e.accept()
+  else:
+    e.ignore()
+ 
  def dropEvent(self, e):
    #~ uri=[]
-   for i in e.mimeData().urls():
-     #print(i.path()[1::])
-     i=i.path()[1::]
-     if (os.path.isdir(i)):
-      self.add_from_dir(i)
+  # e.setDropAction(QtCore.Qt.MoveAction)
+  # e.accept()
+  for i in e.mimeData().urls():
+    i=i.path()[1::]
+    if (os.path.isdir(i)):
+     self.add_from_dir(i)
+    else:
+     e=i[-4:].lower()
+     if e=='.m3u':
+      self.add_from_m3u(i)
      else:
-      e=i[-4:].lower()
-      if e=='.m3u':
-       self.add_from_m3u(i)
-      else:
-       self.add_file_to_list(i)
-   #~ print (self.songs)
-   if(self.song_ptr<=0):
-    self.song_ptr=0
-   if self.cur_handle==None:
-    self.playfile(self.song_ptr)
+      self.add_file_to_list(i)
+  if(self.song_ptr<=0):
+   self.song_ptr=0
+  if self.cur_handle==None:
+   self.playfile(self.song_ptr)
 
 
  def initUI(self):
@@ -440,7 +452,7 @@ class QMini(QMainWindow):
 
   hbox=QVBoxLayout()
 
-  self.titl_label=QLabel('')
+  self.titl_label=QLabel('Drop files here, or press l for load saved playlist')
   self.titl_label.setTextFormat(QtCore.Qt.RichText)
   self.titl_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
   self.titl_label.setAlignment(QtCore.Qt.AlignLeft)
@@ -619,6 +631,9 @@ class QMini(QMainWindow):
 
 
  def playfile(s, f):
+  if len(s.songs)<=0:
+    print('no files in playlist')
+    return
   if f> len(s.songs):
    s.song_ptr=0
    f=0
@@ -712,11 +727,9 @@ def LoadPlugins():
     #except:
     # pass
 
-
-
-
 if __name__ == '__main__':
   BASS_Init(-1, 44100,0, 0,0)
+  BASS_SetConfig(BASS_CONFIG_DEV_BUFFER,250)
   # ~ print BASS_PluginLoad("libtags.so", 0)
   LoadPlugins()
   #print (plugins)
@@ -725,12 +738,5 @@ if __name__ == '__main__':
   app = QApplication(sys.argv)
   ex = QMini()
   ex.setWindowTitle('QMini')
-  # print(PyQt5.QtWidgets.QStyleFactory.keys())
-  # app.setStyle('windowsvista')
-  #w = QWidget()
-  #w.resize(250, 150)
-  #w.move(300, 300)
-  #w.setWindowTitle('Simple')
-  #w.show()
 
   sys.exit(app.exec_())
