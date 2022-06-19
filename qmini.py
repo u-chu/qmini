@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #-*- coding: UTF-8 -*-
 
 # from genericpath import isdir
@@ -10,20 +10,21 @@ try:
         QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
         QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget, QListWidgetItem, \
         QAbstractItemView, QHBoxLayout
-    from PySide2.QtCore import QStringListModel, QObject, SIGNAL
+    from PySide2.QtCore import QStringListModel, QObject, SIGNAL, QPoint, QSettings, QEvent
 except:
     # import PyQt5
+    print('pyqt')
     from PyQt5 import QtCore, QtGui, QtWidgets
     from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
         QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
         QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget, QListWidgetItem, \
         QAbstractItemView, QHBoxLayout
-    from PyQt5.QtCore import QStringListModel, QObject
+    from PyQt5.QtCore import QStringListModel, QObject, QPoint, QSettings, QEvent
     # , SIGNAL
 from modpybass import pybass
 import glob
 import time
-import configparser
+# import configparser
 #from PyQt5.QtWidgets import 
 #import Notify
 
@@ -31,14 +32,19 @@ import mutagen
 from modpybass.pybass import *
 
 if platform.system().lower() == 'windows':
-	from PyQt5.QtWinExtras import QWinTaskbarProgress, \
-		QWinTaskbarButton, QWinThumbnailToolBar, QWinThumbnailToolButton
+  try:
+   from PySide2.QtWinExtras import QWinTaskbarProgress, \
+		  QWinTaskbarButton, QWinThumbnailToolBar, QWinThumbnailToolButton
+  except:
+   from PyQt5.QtWinExtras import QWinTaskbarProgress, \
+		  QWinTaskbarButton, QWinThumbnailToolBar, QWinThumbnailToolButton
 
 
 
-configdir = os.path.expanduser('~/')
-configname=os.path.join(configdir, 'qmbp.ini')
-config = configparser.ConfigParser()
+# configdir = os.path.expanduser('~/')
+# configname=os.path.join(configdir, 'qmini.ini')
+# print (configname)
+# config = configparser.ConfigParser()
 
 formats=[]
 names=[]
@@ -73,14 +79,16 @@ class ListViewW(QMainWindow):
     cbRandom=QCheckBox("Random", wdg)
     cbRepeat=QCheckBox("Repeat", wdg)
     cbConsume.setChecked(self.parent.consume)
+    cbRandom.setChecked(self.parent.random)
+    cbRepeat.setChecked(self.parent.repeat)
     # f=lambda x: (self.parent.consume = not self.parent.consume)
     # QObject.connect(cbConsume, SIGNAL('triggered(bool)'), f, True)
-    QObject.connect(cbConsume, SIGNAL('stateChamged(int)'), self.cb_changed)
+    # QObject.connect(cbConsume, SIGNAL('stateChamged(int)'), self.cb_changed)
     cbConsume.stateChanged.connect(self.cb_changed)
-    # cbConsume.stateChanged.connect(lambda x: not x, self.parent.consume)
     # cbConsume.toggled.connect(lambda x: not x, self.parent.consume)
-    # cbRandom.toggled.connect(lambda x: not x, self.parent.random)
-    # cbRepeat.toggled.connect(lambda x: not x, self.parent.repeat)
+    # cbConsume.toggled.connect(lambda x: not x, self.parent.consume)
+    # cbRandom.stateChanged.connect(lambda x: not x, self.parent.random)
+    # cbRepeat.stateChanged.connect(lambda x: not x, self.parent.repeat)
     vbox.addWidget(cbConsume)
     vbox.addWidget(cbRandom)
     vbox.addWidget(cbRepeat)
@@ -92,9 +100,16 @@ class ListViewW(QMainWindow):
     kb_del.setKey(QtGui.QKeySequence("Del"))
       # QtCore.Qt.Key_Delete)
     kb_del.activated.connect(self.delete_pos)
+    qs=QSettings('qmini.ini', 'lv')
+    self.restoreGeometry(qs.value("geometry"))
 
   def cb_changed(self, state):
     print(state)
+
+  def closeEvent(self, event):
+    qs=QSettings('qmini.ini', 'lv')
+    qs.setValue("geometry", self.saveGeometry())
+    qs.sync()
   
   def delete_pos(self, e=0):
    for i in self.pList.selectedItems():
@@ -110,7 +125,7 @@ class QMini(QMainWindow):
  def __init__(self, *args, **kwargs):
   super(QMini, self).__init__(*args, **kwargs)
   self.songs=[]
-  print(len(self.songs))
+  # print(len(self.songs))
   self.song_ptr=0
   self.cur_handle=None
   self.timer=QtCore.QTimer()
@@ -119,48 +134,62 @@ class QMini(QMainWindow):
   self.repeat=False
   self.random=False
   self.consume=False
-  self.initUI()
+  # self.destroyed.connect(self.on_destroy)
   if platform.system().lower() == 'windows':
-    self.wtb=QWinTaskbarButton()
-    self.tTB=QWinThumbnailToolBar()
-    # print (self)
-    # if not self.wtb.window(): self.wtb.setWindow(self.windowHandle())
-    # if not self.tTB.window(): self.tTB.setWindow(self.windowHandle())
+    self.wtb=QWinTaskbarButton(self)
+    self.tTB=QWinThumbnailToolBar(self)
     self.initWinUI()
-  # self.sk_showplist=QShortcut(self)
-  # self.sk_showplist.setKey(QtCore.Qt.Key_P)
-  # self.sk_showplist.activated.connect(self.show_playlist)
+  self.initUI()
 
-  a_help=QShortcut( self)
-  a_help.activated.connect(self.show_help)
-  a_help.setKey(QtGui.QKeySequence("F1"))
-    # PyQt5.QtCore.Qt.Key_F1)
-  a_help1=QShortcut( self)
-  a_help1.activated.connect(self.show_help)
-  a_help1.setKey(QtGui.QKeySequence("h"))
-    # QtCore.Qt.Key_H)
+  # a_help=QShortcut(QtGui.QKeySequence("F1"), self)
+  # a_help.activated.connect(self.show_help)
+  # a_help1=QShortcut(QtGui.QKeySequence("h"), self)
+  # a_help1.activated.connect(self.show_help)
+
   self.LV=self.LV=ListViewW(self)
-  self.destroyed.connect(self.on_destroy)
-  # if platform.system().lower() == 'windows':
-    # self.wtb=QWinTaskbarButton()
-    # self.tTB=QWinThumbnailToolBar()
-  #QtCore.QMetaObject.connectSlotsByName(self)
+  
+
   
     
- @staticmethod   
+#  @staticmethod   
  def show_help(self=0, e=0):
   QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
 
  def showEvent(self, a0: QtGui.QShowEvent):
   super(QMini, self).showEvent(a0)
+  print (self.sender())
   # if not self.wtb:
   if platform.system().lower() == 'windows':
     if not self.wtb.window(): self.wtb.setWindow(self.windowHandle())
     if not self.tTB.window(): self.tTB.setWindow(self.windowHandle())
-  # ffd77800
+  
+ def keyPressEvent(self, e):
+  # print(e)
+  key = e.key()
+  if key==QtCore.Qt.Key_H or key==QtCore.Qt.Key_F1:
+    print (key)
+    QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
+    # self.show_help()
+  elif key==QtCore.Qt.Key_P:
+    self.show_playlist()
+  super(QMini, self).keyPressEvent(e)
+  # print(key, int(QtCore.Qt.Key_H))
+  # if e.type==QEvent.keyPress:
+
+#  def eventFilter(self, e):
+  # pass
 
  def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-     return super(QMini, self).closeEvent(a0)
+  qs=QSettings('qmini.ini', 'main')
+  qs.setValue("geometry", self.saveGeometry())
+  qs.sync()
+  if self.LV:
+    self.LV.close()
+  if not BASS_PluginFree(0):
+   print ("plugins free error: ", BASS_ErrorGetCode())
+  BASS_PluginFree(0)
+  BASS_Free()
+  return super(QMini, self).closeEvent(a0)
 
  
  def initWinUI(self):
@@ -168,8 +197,10 @@ class QMini(QMainWindow):
   self.wtbprogress.setRange(0, 0)
   self.wtbprogress.setValue(0)
   self.wtbprogress.show()
+  # self.toolBtnControl=QWinThumbnailToolButton(self.tTB)
   #self.tTB.show()
   self.pTB1=QWinThumbnailToolButton(self.tTB)
+  # self.toolBtnControl.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
   self.pTB1.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipBackward))
   
   #~ self.pTB1.setIcon(self.style().standardIcon(QStyle.SP_MediaPause))
@@ -248,7 +279,7 @@ class QMini(QMainWindow):
   if buf!=0:
    BASS_StreamFree(buf)
    self.songs.append(fname)
-   print(len(self.songs))
+  #  print(len(self.songs))
    if self.LV.isVisible():
     self.read_song_list()
    #~ self.pListModel.setStringList(self.songs)
@@ -312,19 +343,14 @@ class QMini(QMainWindow):
 
 
  def initUI(self):
-  #~ self.statusBar().showMessage('Ready')
-  self.setGeometry(50, 300, 500, 50)
-  self.setWindowTitle('qmbp')
+  qs=QSettings('qmini.ini', 'main')
+  self.restoreGeometry(qs.value("geometry"))
   self.setWindowIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
   self.setAcceptDrops(True)
   # Using a title
   a_rev = QAction(self.style().standardIcon(QStyle.SP_MediaSeekBackward), 'Rewind', self)
   a_forw = QAction(self.style().standardIcon(QStyle.SP_MediaSeekForward), 'Forward', self)
   a_stop = QAction(self.style().standardIcon(QStyle.SP_MediaStop), 'Stop', self)
-  """
-  'SP_MediaPause',
-  'SP_MediaPlay',
-  """
   self.a_pause = QAction(self.style().standardIcon(QStyle.SP_MediaPlay), 'Play/Pause', self)
   a_back = QAction(self.style().standardIcon(QStyle.SP_MediaSkipBackward), 'Back', self)
   a_next = QAction(self.style().standardIcon(QStyle.SP_MediaSkipForward), 'Next', self)
@@ -371,23 +397,24 @@ class QMini(QMainWindow):
   ptToolbar.addWidget(self.aLabel)
   #ptToolbar.addAction(a_shuffle)
   #ptToolbar.addAction(a_repeat)
-  menuToolButton=QToolButton()
-  #QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_DockWidgetCloseButton'))),
-                               #'Options', self)
-  menuToolButton.setPopupMode(QToolButton.InstantPopup)
-  #menuToolButton.setArrowType(QtCore.Qt.DownArrow)
-  ptToolbar.addWidget(menuToolButton)
+  
   """a_openfile=QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_DialogOpenButton'))), 'Add file(s)', self)
   a_openfile.triggered.connect(self.add_files)
   a_openfolder=QAction(QIcon(self.style().standardIcon(getattr(QStyle, 'SP_DirOpenIcon'))), 'Add folder(s)', self)
   a_openfolder.triggered.connect(self.add_folders)"""
 
   a_show_playlist=QAction('Show playlist', self)
-  a_show_playlist.setShortcut(QtGui.QKeySequence("p"))
+  # a_show_playlist.setShortcut(QtGui.QKeySequence("p"))
     # QtCore.Qt.Key_P);
   a_show_playlist.triggered.connect(self.show_playlist)
   a_clear_playlist.triggered.connect(self.clear_playlist)
+  
+  pOpt=ptToolbar.addAction(" ")
+#   print (pOpt)
   oMenu=QMenu('Options')
+  pOpt.setMenu(oMenu)
+#   pOpt.setPopupMode(QToolbutton.InstantPopup)
+#   pOpt.setArrowType(QtCore.Qt.DownArrow)
   #oMenu.addAction(a_openfile)
 
   #oMenu.addAction(a_openfolder)
@@ -402,56 +429,36 @@ class QMini(QMainWindow):
   am=oMenu.addMenu('Styles')
   for s in QtWidgets.QStyleFactory.keys():
     a=am.addAction(s)
-    # a.triggered.connect(self.set_style, s)
+    # a.triggered.connect(lambda x: self.set_style(x), s)"""
+#   menuToolButton=QToolButton()
+#   menuToolButton.setMenu(oMenu)
 
-  menuToolButton.setMenu(oMenu)
-  #sWindows.triggered.connect(self.set_style, 'Fusion')
-  #sWindows.triggered.connect(lambda x:QApplication.setStyle(x), 'Fusion')
-  # a_repeat.triggered.connect(lambda x: not x, self.repeat)
-  # a_shuffle.triggered.connect(lambda x: not x, self.random)
-  # a_consume.triggered.connect(lambda x: not x, self.consume)
-  # (self.toggle_check_menu_item, self.consume, a_consume)
-    # )
+#   menuToolButton.setPopupMode(QToolButton.InstantPopup)
+  #menuToolButton.setArrowType(QtCore.Qt.DownArrow)
+#   ptToolbar.addWidget(menuToolButton)
+ 
 
-  #pShuffle=QCheckBox("Shuffle")
-  #pRandom=QCheckBox("Random")
-  #ptToolbar.addWidget(pShuffle)
-  #ptToolbar.addWidget(pRandom)
   hbox=QVBoxLayout()
-  #
-  #a_openfile = QPushButton("Open file")
-  #a_openfile.setIcon(QIcon())
-  #a_openfile.resize(QtCore.QSize(16, 16))
+
   self.titl_label=QLabel('')
   self.titl_label.setTextFormat(QtCore.Qt.RichText)
   self.titl_label.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
   self.titl_label.setAlignment(QtCore.Qt.AlignLeft)
   #hbox.addWidget(a_openfile)
   hbox.addWidget(self.titl_label)
-  #
-  """pList=QListView()
-  self.pListModel=QStringListModel(self.songs)
-  pList.setModel(self.pListModel)
-  hbox.addWidget(pList)"""
+
   wdg = QWidget()
   wdg.setLayout(hbox);
   self.setCentralWidget(wdg)
-  #~ sb=QStatusBar()
-  #sb.setSizeGripEnabled(False)
-  #~ self.setStatusBar(sb)
+
   self.show()
   self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-  self.destroyed.connect(self.on_destroy)
-  #self.sb=QStatusBar(self)
-  #self.setStatusBar(self.sb)
-  #QApplication.setStyle('Macintosh')
+  # self.destroyed.connect(self.on_destroy)
+
 
  def toggle_check_menu_item(self, a, x):
   a = not a
   x.setCheckable(a)
-
- def set_style(self, new_style):
-   QApplication.setStyle(new_style)
 
  def clear_playlist(self, w=0):
   self.pstop()
@@ -459,9 +466,7 @@ class QMini(QMainWindow):
   if self.LV.isVisible():
     self.read_song_list()
 
- """def add_folders(self):
-  folders=QFileDialog.getExistingDirectory(self, "Add folder(s)", "", QFileDialog.ShowDirsOnly)
-  print(folders)"""
+
 
  """def add_files(self):
   #maskname=
@@ -481,47 +486,6 @@ class QMini(QMainWindow):
 
  def set_style(self, style):
   QApplication.setStyle(QStyleFactory.create(style))
-
-
- #@staticmethod
- def on_destroy(self):
-  if self.LV:
-    self.LV.close()
-  #print("on_destroy")
-  #print(self.parent())
-  if not BASS_PluginFree(0):
-   print ("plugins free error: ", BASS_ErrorGetCode())
-  BASS_PluginFree(0)
-  BASS_Free()
-  p= QtCore.QPoint()
-  self.mapToGlobal(p)
-  if not os.path.exists(configdir):
-   os.makedirs(configdir)
-  if not config.has_section("main"):
-   config.add_section("main")
-  config.set('main', 'y', str(p.y()))
-  config.set('main', 'x', str(p.x()))
-  #config.set('main', 'randon', str(self.random))
-  #config.set('main', 'repeat', str(self.repeat))
-  with open(configname, 'w') as configfile:
-   config.write(configfile)
-  """if self.cur_handle != None:
-   bcia= BASS_ChannelIsActive(s.cur_handle)
-   config.set('main', 'status', str(bcia))
-   config.set('main', 'song', str(s.song_ptr))
-   if bcia==BASS_ACTIVE_PLAYING or bcia==BASS_ACTIVE_PAUSED:
-    curpl=os.path.join(configdir, 'current.m3u')
-    fp = open(curpl, "w")
-    newlist = self.songs[:]
-    newlist.sort(reverse=False)
-    for song in newlist:
-     fp.write(song + '\n')
-    fp.close()
-  else:
-   config.set('main', 'status', str(BASS_ACTIVE_STOPPED))"""
-  with open(configname, 'w') as configfile:
-   config.write(configfile)
-
 
  def timer_func(self):
   #print ('timer_func')
