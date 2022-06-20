@@ -8,7 +8,7 @@ try:
     from PySide2 import QtCore, QtGui, QtWidgets
     from PySide2.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
         QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
-        QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget, QListWidgetItem, \
+        QListWidget, QCheckBox, QWidget, QMessageBox, QWidget, QListWidgetItem, \
         QAbstractItemView, QHBoxLayout
     from PySide2.QtCore import QStringListModel, QObject, SIGNAL, QPoint, QSettings, QEvent
 except:
@@ -17,7 +17,7 @@ except:
     from PyQt5 import QtCore, QtGui, QtWidgets
     from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
         QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
-        QListWidget, QCheckBox, QShortcut, QWidget, QMessageBox, QWidget, QListWidgetItem, \
+        QListWidget, QCheckBox, QWidget, QMessageBox, QWidget, QListWidgetItem, \
         QAbstractItemView, QHBoxLayout
     from PyQt5.QtCore import QStringListModel, QObject, QPoint, QSettings, QEvent
     # , SIGNAL
@@ -96,12 +96,18 @@ class ListViewW(QMainWindow):
     self.destroyed.connect(self.close)
     self.sb=QStatusBar(self)
     self.setStatusBar(self.sb)
-    kb_del=QShortcut(self.pList )
-    kb_del.setKey(QtGui.QKeySequence("Del"))
+    # kb_del=QShortcut(self.pList )
+    # kb_del.setKey(QtGui.QKeySequence("Del"))
       # QtCore.Qt.Key_Delete)
-    kb_del.activated.connect(self.delete_pos)
+    # kb_del.activated.connect(self.delete_pos)
     qs=QSettings('qmini.ini', 'lv')
     self.restoreGeometry(qs.value("geometry"))
+
+  def keyPressEvent(self, e):
+    # print(e)
+    key = e.key()
+    if key==QtCore.Qt.Key_Delete:
+      self.delete_pos()
 
   def cb_changed(self, state):
     print(state)
@@ -278,8 +284,7 @@ class QMini(QMainWindow):
   # buf=0
   print(u'%s'%fname)
   # if platform.system().lower()=='windows':
-  buf = BASS_StreamCreateFile(False, fname, 0,0, 0)
-  # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
+  buf = BASS_StreamCreateFile(False, fname, 0,0, BASS_UNICODE)
   # else:
     # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT)
   if buf!=0:
