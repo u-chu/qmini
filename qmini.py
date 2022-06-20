@@ -108,6 +108,7 @@ class ListViewW(QMainWindow):
     key = e.key()
     if key==QtCore.Qt.Key_Delete:
       self.delete_pos()
+    super(ListViewW, self).keyPressEvent(e)
 
   def cb_changed(self, state):
     print(state)
@@ -178,6 +179,8 @@ class QMini(QMainWindow):
     # self.show_help()
   elif key==QtCore.Qt.Key_P:
     self.show_playlist()
+  elif key==(QtCore.Qt.Key_Control and QtCore.Qt.Key_C):
+    self.clear_playlist()
   super(QMini, self).keyPressEvent(e)
   # print(key, int(QtCore.Qt.Key_H))
   # if e.type==QEvent.keyPress:
