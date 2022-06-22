@@ -287,13 +287,9 @@ class QMini(QMainWindow):
   # buf=0
   # print(u'%s'%fname)
   # if platform.system().lower()=='windows':
-<<<<<<< HEAD
   buf = BASS_StreamCreateFile(False, fname, 0,256, BASS_UNICODE)
   print(buf)
   # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
-=======
-  buf = BASS_StreamCreateFile(False, fname, 0,0, BASS_UNICODE)
->>>>>>> 8dfa116211a1ca8fe928fc4a1fbca919f338d633
   # else:
     # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT)
   if buf!=0:
