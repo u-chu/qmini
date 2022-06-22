@@ -276,9 +276,10 @@ class QMini(QMainWindow):
    
  def add_file_to_list(self, fname):
   # buf=0
-  print(u'%s'%fname)
+  # print(u'%s'%fname)
   # if platform.system().lower()=='windows':
-  buf = BASS_StreamCreateFile(False, fname, 0,0, 0)
+  buf = BASS_StreamCreateFile(False, fname, 0,256, BASS_UNICODE)
+  print(buf)
   # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
   # else:
     # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT)
@@ -728,8 +729,7 @@ def LoadPlugins():
     # pass
 
 if __name__ == '__main__':
-  BASS_Init(-1, 44100,0, 0,0)
-  BASS_SetConfig(BASS_CONFIG_DEV_BUFFER,250)
+
   # ~ print BASS_PluginLoad("libtags.so", 0)
   LoadPlugins()
   #print (plugins)
@@ -737,6 +737,8 @@ if __name__ == '__main__':
 
   app = QApplication(sys.argv)
   ex = QMini()
-  ex.setWindowTitle('QMini')
 
+  ex.setWindowTitle('QMini')
+  print (BASS_Init(-1, 44100,0, ex.winId(),0))
+  # BASS_SetConfig(BASS_CONFIG_DEV_BUFFER,250)
   sys.exit(app.exec_())
