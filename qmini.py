@@ -181,7 +181,8 @@ class QMini(QMainWindow):
     self.show_playlist()
   elif key==(QtCore.Qt.Key_Control and QtCore.Qt.Key_C):
     self.clear_playlist()
-  super(QMini, self).keyPressEvent(e)
+  else:
+    super(QMini, self).keyPressEvent(e)
   # print(key, int(QtCore.Qt.Key_H))
   # if e.type==QEvent.keyPress:
 
@@ -287,9 +288,11 @@ class QMini(QMainWindow):
   # buf=0
   # print(u'%s'%fname)
   # if platform.system().lower()=='windows':
-  buf = BASS_StreamCreateFile(False, fname, 0,256, BASS_UNICODE)
-  print(buf)
+  fname=bytes(fname.encode('utf-8', 'ignore')).decode('utf-8', 'ignore')
+  buf = BASS_StreamCreateFile(False, fname, 0,16, BASS_UNICODE)
+  # print(buf)
   # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
+  # buf=1
   # else:
     # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT)
   if buf!=0:
@@ -349,7 +352,8 @@ class QMini(QMainWindow):
   # e.setDropAction(QtCore.Qt.MoveAction)
   # e.accept()
   for i in e.mimeData().urls():
-    i=i.path()[1::]
+    i=u''+i.path()[1::]
+    # print(i)
     if (os.path.isdir(i)):
      self.add_from_dir(i)
     else:
@@ -649,7 +653,7 @@ class QMini(QMainWindow):
    f=0
   fname = s.songs[f]
   print (fname)
-  s.cur_handle=BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_STREAM_AUTOFREE|BASS_SAMPLE_FLOAT|BASS_UNICODE)
+  s.cur_handle=BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_UNICODE)
   #print ('s.cur_handle=', s.cur_handle)
 
   if s.cur_handle==None:
@@ -715,11 +719,20 @@ class QMini(QMainWindow):
   return (tit, alb, art, yea)
 
 def LoadPlugins():
- r, d = os.path.split(os.path.abspath(os.path.expanduser(sys.argv[0])))
- #print(r, d)
-
- for f in glob.glob(r+'/bass*.dll'):
-   #print (f)
+#  r, d = os.path.split(os.path.abspath(os.path.expanduser(sys.argv[0])))
+#  print(r, d)
+ e=''
+ p=''
+ if platform.system().lower() == 'windows':
+  e='.dll'
+  p=''
+ else:
+  e='.so'
+  p='lib'
+ l=glob.glob(p+'bass*'+e)
+ print(l)
+ for f in l:
+  print ('f: ', f)
    #try:
   p=ctypes.c_char_p(f.encode('utf-8', 'errors=ignore'))
   h=BASS_PluginLoad(p, 0)
@@ -738,16 +751,16 @@ def LoadPlugins():
     # pass
 
 if __name__ == '__main__':
-
-  # ~ print BASS_PluginLoad("libtags.so", 0)
-  LoadPlugins()
-  #print (plugins)
-  #print (BASS_GetVersion())
-
   app = QApplication(sys.argv)
   ex = QMini()
 
   ex.setWindowTitle('QMini')
   print (BASS_Init(-1, 44100,0, ex.winId(),0))
+  LoadPlugins()
+  # h=BASS_PluginLoad(b'libbassenc_mp3.so', BASS_UNICODE)
+  # if h>0:
+    # plugins.append(h)
+  # else:
+    # print('BASS_ErrorGetCode=', BASS_ErrorGetCode())
   # BASS_SetConfig(BASS_CONFIG_DEV_BUFFER,250)
   sys.exit(app.exec_())
