@@ -31,7 +31,7 @@ import time
 import mutagen
 from modpybass.pybass import *
 
-if platform.system().lower() == 'windows':
+if sys.platform.startswith('win'):
   try:
    from PySide2.QtWinExtras import QWinTaskbarProgress, \
 		  QWinTaskbarButton, QWinThumbnailToolBar, QWinThumbnailToolButton
@@ -92,6 +92,7 @@ class ListViewW(QMainWindow):
     vbox.addWidget(cbConsume)
     vbox.addWidget(cbRandom)
     vbox.addWidget(cbRepeat)
+    self.setWindowFlags(QtCore.Qt.Tool)
     
     self.destroyed.connect(self.close)
     self.sb=QStatusBar(self)
@@ -142,7 +143,7 @@ class QMini(QMainWindow):
   self.random=False
   self.consume=False
   # self.destroyed.connect(self.on_destroy)
-  if platform.system().lower() == 'windows':
+  if sys.platform.startswith('win'):
     self.wtb=QWinTaskbarButton(self)
     self.tTB=QWinThumbnailToolBar(self)
     self.initWinUI()
@@ -169,16 +170,51 @@ class QMini(QMainWindow):
   if platform.system().lower() == 'windows':
     if not self.wtb.window(): self.wtb.setWindow(self.windowHandle())
     if not self.tTB.window(): self.tTB.setWindow(self.windowHandle())
+
+ def save_playlist(self, b):
+  if(len(self.songs)<=0):
+    QMessageBox.information(self, "Info", "Playlist is empty", QMessageBox.Ok).exec()
+  # print('save_playlist')
+  with open ('playlist.m3u', b) as m3u:
+    if(b=='w'):
+      m3u.write('#EXTM3U\n')
+    for i in self.songs:
+      h=BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_UNICODE)
+      l=BASS_ChannelGetLength(h, BASS_POS_BYTE)
+      l=int(BASS_ChannelBytes2Seconds(h, l))
+      BASS_StreamFree(h)
+      r=self.get_tags(i)
+      # st = "{0} :: {1} ({2}) :: {3} [{4}]".format(b[2], b[1], b[3], b[0], l)
+      m3u.write('#{0}, {1} - {2}\n'.format(l, r[2], r[0]))
+      m3u.write(i+'\n')
+    m3u.close()
+  QMessageBox.information(self, "Info", "Playlist saved", QMessageBox.Ok)
+
+ def load_playlist(self, a):
+  print('load playlist')
+  if a==0:
+    self.clear_playlist()
+  self.add_from_m3u('playlist.m3u')
+  # elif a==1:
+    # self.add_from_m3u('playlist.m3u')
   
  def keyPressEvent(self, e):
   # print(e)
   key = e.key()
-  if key==QtCore.Qt.Key_H or key==QtCore.Qt.Key_F1:
-    print (key)
-    QMessageBox(QMessageBox.Information, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
+  if (key==QtCore.Qt.Key_H or key==QtCore.Qt.Key_F1):
+    # print (key)
+    QMessageBox.information(self, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
     # self.show_help()
   elif key==QtCore.Qt.Key_P:
     self.show_playlist()
+  elif key==QtCore.Qt.Key_S:
+    self.save_playlist('w')
+  elif key==QtCore.Qt.Key_A:
+    self.save_playlist('a')
+  elif key==QtCore.Qt.Key_L:
+    self.load_playlist(0)
+  elif key==QtCore.Qt.Key_E:
+    self.load_playlist(1)
   elif key==(QtCore.Qt.Key_Control and QtCore.Qt.Key_C):
     self.clear_playlist()
   else:
@@ -246,7 +282,7 @@ class QMini(QMainWindow):
      continue
    b=self.get_tags(i)
    a= QListWidgetItem()
-   h=BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE)
+   h=BASS_StreamCreateFile(False, i, 0,0,BASS_MUSIC_PRESCAN|BASS_UNICODE)
    l=BASS_ChannelGetLength(h, BASS_POS_BYTE)
    l=BASS_ChannelBytes2Seconds(h, l)
    BASS_StreamFree(h)
@@ -288,8 +324,8 @@ class QMini(QMainWindow):
   # buf=0
   # print(u'%s'%fname)
   # if platform.system().lower()=='windows':
-  fname=bytes(fname.encode('utf-8', 'ignore')).decode('utf-8', 'ignore')
-  buf = BASS_StreamCreateFile(False, fname, 0,16, BASS_UNICODE)
+  # fname=bytes(fname.encode('utf-8', 'ignore')).decode('utf-8', 'ignore')
+  buf = BASS_StreamCreateFile(False, fname, 0,0, BASS_UNICODE)
   # print(buf)
   # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
   # buf=1
@@ -455,14 +491,6 @@ class QMini(QMainWindow):
   am=oMenu.addMenu('Styles')
   for s in QtWidgets.QStyleFactory.keys():
     a=am.addAction(s)
-    # a.triggered.connect(lambda x: self.set_style(x), s)"""
-#   menuToolButton=QToolButton()
-#   menuToolButton.setMenu(oMenu)
-
-#   menuToolButton.setPopupMode(QToolButton.InstantPopup)
-  #menuToolButton.setArrowType(QtCore.Qt.DownArrow)
-#   ptToolbar.addWidget(menuToolButton)
- 
 
   hbox=QVBoxLayout()
 
@@ -479,6 +507,7 @@ class QMini(QMainWindow):
 
   self.show()
   self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+  # self.setWindowFlags(self.windowFlags() |QtCore.Qt.Tool| QtCore.Qt.WindowSystemMenuHint |QtCore.Qt.WindowMinMaxButtonsHint)
   # self.destroyed.connect(self.on_destroy)
 
 
@@ -721,16 +750,22 @@ class QMini(QMainWindow):
 def LoadPlugins():
 #  r, d = os.path.split(os.path.abspath(os.path.expanduser(sys.argv[0])))
 #  print(r, d)
+ d =''
  e=''
  p=''
  if platform.system().lower() == 'windows':
+  d=os.path.dirname('bass.dll')
   e='.dll'
   p=''
  else:
+  d=os.path.dirname('libbass.so')
   e='.so'
   p='lib'
- l=glob.glob(p+'bass*'+e)
- print(l)
+ d=os.path.realpath(d) 
+ n= d+'\\'+p+'bass*'+e
+ print(n)
+ l=glob.glob(n)
+ print('l:', l)
  for f in l:
   print ('f: ', f)
    #try:
@@ -757,7 +792,10 @@ if __name__ == '__main__':
   ex.setWindowTitle('QMini')
   print (BASS_Init(-1, 44100,0, ex.winId(),0))
   LoadPlugins()
-  # h=BASS_PluginLoad(b'libbassenc_mp3.so', BASS_UNICODE)
+  # a1=os.path.realpath('bass_tta.dll').encode('utf-8', 'ignore')
+  # print(a1)
+  # h=BASS_PluginLoad(a1, BASS_UNICODE)
+  # print(h)
   # if h>0:
     # plugins.append(h)
   # else:
