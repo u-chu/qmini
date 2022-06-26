@@ -203,7 +203,7 @@ class QMini(QMainWindow):
   key = e.key()
   if (key==QtCore.Qt.Key_H or key==QtCore.Qt.Key_F1):
     # print (key)
-    QMessageBox.information(self, "Help", "F1, h - help\ns - save playlist with rewrite content\na-add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok).exec()
+    QMessageBox.information(self, "Help", "F1, h - help\ns - save playlist with rewrite content\na - add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok)
     # self.show_help()
   elif key==QtCore.Qt.Key_P:
     self.show_playlist()
