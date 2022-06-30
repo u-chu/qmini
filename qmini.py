@@ -9,7 +9,7 @@ try:
     from PySide2.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
         QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
         QListWidget, QCheckBox, QWidget, QMessageBox, QWidget, QListWidgetItem, \
-        QAbstractItemView, QHBoxLayout
+        QAbstractItemView, QHBoxLayout, QFileDialog
     from PySide2.QtCore import QStringListModel, QObject, SIGNAL, QPoint, QSettings, QEvent
 except:
     # import PyQt5
@@ -18,10 +18,10 @@ except:
     from PyQt5.QtWidgets import QApplication,  QVBoxLayout, QLabel, QMainWindow, \
         QToolBar, QAction,  QStyle, QSlider, QToolButton, QMenu, QStatusBar, QStyleFactory, \
         QListWidget, QCheckBox, QWidget, QMessageBox, QWidget, QListWidgetItem, \
-        QAbstractItemView, QHBoxLayout
+        QAbstractItemView, QHBoxLayout, QFileDialog
     from PyQt5.QtCore import QStringListModel, QObject, QPoint, QSettings, QEvent
     # , SIGNAL
-from modpybass import pybass
+# from modpybass import pybass
 import glob
 import time
 # import configparser
@@ -203,7 +203,7 @@ class QMini(QMainWindow):
   key = e.key()
   if (key==QtCore.Qt.Key_H or key==QtCore.Qt.Key_F1):
     # print (key)
-    QMessageBox.information(self, "Help", "F1, h - help\ns - save playlist with rewrite content\na - add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\np - show current playlist\n\n", QMessageBox.Ok)
+    QMessageBox.information(self, "Help", "F1, h - help\ns - save playlist with rewrite content\na - add to saved playlist\nl - load playlist\ne - enqueue saved playlist to current\no-open file(s) or folders\np - show current playlist\n\n", QMessageBox.Ok)
     # self.show_help()
   elif key==QtCore.Qt.Key_P:
     self.show_playlist()
@@ -217,6 +217,8 @@ class QMini(QMainWindow):
     self.load_playlist(1)
   elif key==(QtCore.Qt.Key_Control and QtCore.Qt.Key_C):
     self.clear_playlist()
+  elif key==QtCore.Qt.Key_O:
+    self.open_files()
   else:
     super(QMini, self).keyPressEvent(e)
   # print(key, int(QtCore.Qt.Key_H))
@@ -224,6 +226,23 @@ class QMini(QMainWindow):
 
 #  def eventFilter(self, e):
   # pass
+
+ def open_files(self):
+  path=''
+  d=QFileDialog(self)
+  d.setFileMode(QFileDialog.ExistingFiles)
+  if d.exec_():
+    path = d.selectedFiles()
+    for i in path:
+      self.add_file_to_list(i)
+      if(self.song_ptr<=0):
+        self.song_ptr=0
+      if self.cur_handle==None:
+        self.playfile(self.song_ptr)
+    # print(i)
+  # path = .getOpenFileName(self, 'Open a file', '', 'All Files (*.*)')
+  # print (path)
+
 
  def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
   qs=QSettings('qmini.ini', 'main')
@@ -325,21 +344,26 @@ class QMini(QMainWindow):
   # print(u'%s'%fname)
   # if platform.system().lower()=='windows':
   # fname=bytes(fname.encode('utf-8', 'ignore')).decode('utf-8', 'ignore')
-  buf = BASS_StreamCreateFile(False, fname, 0,0, BASS_UNICODE)
+    # buf = BASS_StreamCreateFile(False, fname, 0,0, BASS_UNICODE)
+  # else:
+    # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0, 0)
   # print(buf)
   # BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT|BASS_UNICODE
   # buf=1
   # else:
     # buf = BASS_StreamCreateFile(False, fname.encode('utf-8', 'ignore'), 0,0,BASS_MUSIC_PRESCAN|BASS_SAMPLE_FLOAT)
-  if buf!=0:
-   BASS_StreamFree(buf)
-   self.songs.append(fname)
+  # if buf!=0:
+  #  BASS_StreamFree(buf)
+  
+  if os.path.exists(fname):
+    print('fname=', fname)
+    self.songs.append(fname)
   #  print(len(self.songs))
-   if self.LV.isVisible():
+  if self.LV.isVisible():
     self.read_song_list()
    #~ self.pListModel.setStringList(self.songs)
-  else:
-   print("BASS_ErrorGetCode= ", BASS_ErrorGetCode(), '; file name= ', fname )
+  # else:
+  #  print("BASS_ErrorGetCode= ", BASS_ErrorGetCode(), '; file name= ', fname )
   
  def add_from_m3u(self, fn):
   a=os.path.split(fn)[0]
@@ -471,11 +495,13 @@ class QMini(QMainWindow):
   a_show_playlist.triggered.connect(self.show_playlist)
   a_clear_playlist.triggered.connect(self.clear_playlist)
   
-  pOpt=ptToolbar.addAction(" ")
+#   pOpt=ptToolbar.addAction(" ")
+  pOpt=QToolButton(ptToolbar)
+  ptToolbar.addWidget(pOpt)
 #   print (pOpt)
-  oMenu=QMenu('Options')
+  oMenu=QMenu(pOpt)
   pOpt.setMenu(oMenu)
-#   pOpt.setPopupMode(QToolbutton.InstantPopup)
+  pOpt.setPopupMode(QToolButton.InstantPopup)
 #   pOpt.setArrowType(QtCore.Qt.DownArrow)
   #oMenu.addAction(a_openfile)
 
@@ -491,6 +517,7 @@ class QMini(QMainWindow):
   am=oMenu.addMenu('Styles')
   for s in QtWidgets.QStyleFactory.keys():
     a=am.addAction(s)
+    a.triggered.connect(self.set_style(s))
 
   hbox=QVBoxLayout()
 
@@ -682,10 +709,14 @@ class QMini(QMainWindow):
    f=0
   fname = s.songs[f]
   print (fname)
-  s.cur_handle=BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_UNICODE)
-  #print ('s.cur_handle=', s.cur_handle)
+  # s.cur_handle=BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_STREAM_AUTOFREE|BASS_SAMPLE_FLOAT)
+  if sys.platform.startswith('win'):
+    s.cur_handle=BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN|BASS_UNICODE|BASS_SAMPLE_FLOAT)
+  else:
+    s.cur_handle=BASS_StreamCreateFile(False, fname, 0,0,BASS_MUSIC_PRESCAN)
+  print ('s.cur_handle=', s.cur_handle)
 
-  if s.cur_handle==None:
+  if s.cur_handle==None or s.cur_handle==0:
    ec=BASS_ErrorGetCode()
    print (get_error_description(ec), ec)
   a=s.get_tags(fname)
@@ -700,11 +731,10 @@ class QMini(QMainWindow):
   ct1=time.strftime("/<b>%M:%S</b>", time.gmtime(secs))
   s.aLabel.setText(ct1)
   s.hscale.setMaximum(int(s.wlen))
-  s.wtbprogress.setMaximum(s.wlen)
-
   a=time.gmtime(secs)
   s.a_pause.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
   if platform.system().lower()=='windows':
+    s.wtbprogress.setMaximum(s.wlen)
     s.pTB2.setIcon(s.style().standardIcon(QStyle.SP_MediaPause))
 
 
