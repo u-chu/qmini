@@ -574,7 +574,7 @@ class QMini(QMainWindow):
   if self.song_ptr<0 or self.cur_handle==None:
    return True
   bcia= BASS_ChannelIsActive(self.cur_handle)
-  pos=BASS_ChannelGetPosition(self.cur_handle, pybass.BASS_POS_BYTE)
+  pos=BASS_ChannelGetPosition(self.cur_handle, BASS_POS_BYTE)
   secs=BASS_ChannelBytes2Seconds(self.cur_handle, pos)
   self.hscale.setValue(pos)
   if platform.system().lower()=='windows':
@@ -690,12 +690,12 @@ class QMini(QMainWindow):
  def skip(self, sec):
   if self.cur_handle == None:
    return
-  pos=BASS_ChannelGetPosition(self.cur_handle, pybass.BASS_POS_BYTE)
+  pos=BASS_ChannelGetPosition(self.cur_handle, BASS_POS_BYTE)
   secs=BASS_ChannelBytes2Seconds(self.cur_handle, pos)
   secs += sec
   if pos < 0: pos = 0.
   pos=BASS_ChannelSeconds2Bytes(self.cur_handle, secs)
-  BASS_ChannelSetPosition(self.cur_handle, int(pos), pybass.BASS_POS_BYTE)
+  BASS_ChannelSetPosition(self.cur_handle, int(pos), BASS_POS_BYTE)
 
 
 
