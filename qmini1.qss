@@ -1,0 +1,82 @@
+
+/*QTreeView*/
+QTreeView
+{
+    background-color: #3f3f3f;
+    
+}
+/*-----QToolButton-----*/
+QToolButton
+{
+	background-color: #3f3f3f;
+    /* #00ff4f;*/
+	color: #000000;
+	font-weight: bold;
+	border-style: solid;
+	border-color: #000000;
+	padding: 3px;
+
+}
+
+
+QToolButton::hover
+{
+	background-color: #f0dfaf;
+
+}
+
+
+QToolButton::pressed
+{
+	background-color: #DCA3A3;
+
+}
+/*
+QMainWindow, QProgressBar
+{
+    background-color: #262729;
+}*/
+/*--------QLabel-------*/
+QLabel, QWidget, QElidedLabel
+{
+    color: #DCDCCC;
+    background-color: #3f3f3f;
+    /* background-color: #262729; */
+}
+/*-----QToolBar-----*/
+QToolBar
+{
+	/* background-color: #262729; */
+    background-color: #3f3f3f;
+	color: #ffffff;
+	border-color: #000000;
+
+}
+/*QMenu*/
+QMenu {
+    margin: 10px;  /*A bit of nice padding around menu items.*/
+    background-color: #3f3f3f;
+    color: #DCDCCC;
+    /* border: 1px solid #DCDCCC; */
+}
+
+QMenu::item,
+QMenuBar::item
+{
+    background-color: #3f3f3f;
+    color: #DCDCCC;
+}
+
+QMenu::item:disabled,
+QMenuBar::item:disabled
+{
+    color: #7F9F7F;
+    font-style: italic;
+}
+
+QMenu::item:selected,
+QMenuBar::item:selected
+{
+    color: #000;
+    background-color: #DCA3A3;
+}
