@@ -16,7 +16,7 @@ except:
 import time
 
 import mutagen
-from pprint import pprint
+# from pprint import pprint
 
 # import configparser
 #from PyQt5.QtWidgets import 
@@ -30,10 +30,8 @@ from pprint import pprint
 if sys.platform.lower().startswith('win'):
   try:
    from PySide2 import QtWinExtras
-  #  import (QWinTaskbarButton, QWinTaskbarProgress,                            QWinThumbnailToolBar,                                    QWinThumbnailToolButton)
   except:
    from PyQt5 import QtWinExtras 
-  #  import (QWinTaskbarButton, QWinTaskbarProgress,                                  QWinThumbnailToolBar,                                  QWinThumbnailToolButton)
 
 
 
@@ -318,7 +316,7 @@ class QMini(QtWidgets.QMainWindow):
   s1=".: QMini :: %s :: %s :."%(tags[2], tags[0])
   # 
   self.setWindowTitle(s1)
-  self.qs.showMessage(sTitle, "%s\n%s (%s)\n%s"%(tags[0],tags[1], tags[3], tags[2]))
+  self.qs.showMessage(sTitle, "%s\n%s (%s)\n%s"%(tags[0],tags[1], tags[3], tags[2]), self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward), 5000)
   self.qs.setToolTip(s1)
   if self.LV.isVisible():
     self.read_song_list()
@@ -452,7 +450,7 @@ class QMini(QtWidgets.QMainWindow):
   self.pTB1.clicked.connect(self.prev_song)
   self.pTB2=QtWinExtras.QWinThumbnailToolButton(self.tTB)
   self.pTB2.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
-  self.pTB2.clicked.connect(self.ppause)
+  self.pTB2.clicked.connect(self._player.play)
   self.pTB3=QtWinExtras.QWinThumbnailToolButton(self.tTB)
   self.pTB3.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
   self.pTB3.clicked.connect(self.next_song)
