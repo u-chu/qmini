@@ -113,6 +113,7 @@ class ListViewW(QtWidgets.QMainWindow):
     vbox=QtWidgets.QHBoxLayout()
     # self.model=QStringListModel([])
     self.model=QtGui.QStandardItemModel(1,4)
+    # self.model=QtCore.QAbstractItemModel(1,4)
 
     wdg = QtWidgets.QWidget()
     # self.pList=QListWidget(wdg)
@@ -123,6 +124,11 @@ class ListViewW(QtWidgets.QMainWindow):
     self.model.setHeaderData(1, QtCore.Qt.Horizontal, "Title")
     self.model.setHeaderData(2, QtCore.Qt.Horizontal, "Album")
     self.model.setHeaderData(3, QtCore.Qt.Horizontal, "Artist")
+    # self.LV.model.setHeaderData(0, QtCore.Qt.Horizontal, "")
+    # self.LV.model.setHeaderData(1, QtCore.Qt.Horizontal, "Title")
+    # self.LV.model.setHeaderData(2, QtCore.Qt.Horizontal, "Album")
+    # self.LV.model.setHeaderData(3, QtCore.Qt.Horizontal, "Artist")  
+  # self.LV.model.setHeaderData(4, QtCore.Qt.Horizontal, "Duration")
     self.plist.setModel(self.model)
 
     self.plist.setSelectionMode( QtWidgets.QAbstractItemView.ExtendedSelection)
@@ -236,7 +242,7 @@ class QMini(QtWidgets.QMainWindow):
   self.LV=ListViewW(self)
   self.bd=ItemDelegate(self)
   self.LV.plist.setItemDelegate(self.bd)
-  self.LV.plist.doubleClicked.connect(self.onDblClick)
+  self.LV.plist.doubleClicked.connect(self.onLVDblClick)
 
  def onStateChanged(self, state):
   # print(state)
@@ -300,6 +306,9 @@ class QMini(QtWidgets.QMainWindow):
 #     self._player.playlist().removeMedia(index-1)
 
  def onCurrentMediaChanged(self, m):
+  # if m == self._player.currentMedia():
+    # print (1)
+    # return
   #~ print(m.canonicalUrl().toLocalFile())
   fn=m.canonicalUrl().toLocalFile()
   if fn==None or len(fn)==0:
@@ -469,64 +478,64 @@ class QMini(QtWidgets.QMainWindow):
    e.ignore()
 
  def read_song_list(self):
-  # k=0
+  k=1
   all=0
   for i in range(self.LV.model.rowCount(), -1, -1):
         self.LV.model.removeRow(i)
-#   self.LV.model.clear()
-  # self.deleteAbsent()
-  # l=[]
-  # for i in range(self._player.playlist().mediaCount(), -1, -1):
-  #   f= self._player.playlist().media(i).canonicalUrl().toLocalFile()
-  #   if not os.path.isfile(f):
-  #     self._player.playlist().removeMedia(i)
-  
   for i in range(self._player.playlist().mediaCount()):
     f= self._player.playlist().media(i).canonicalUrl().toLocalFile()
-    if os.path.isfile(f):
-     # self._player.playlist().removeMedia()
+    if not os.path.isfile(f):
+      st=self._player.state()
+      cind = self._player.playlist().currentIndex()
+      pos=self._player.position()
+      if self._player.playlist().currentIndex()<i:        
+        if st==QtMultimedia.QMediaPlayer.PlayingState:
+          self._player.pause()
+        self._player.playlist().removeMedia(i)
+        self._player.playlist().setCurrentIndex(cind-1)
+      else:
+        self._player.playlist().removeMedia(i)
+        self._player.playlist().setCurrentIndex(cind)
+      self._player.setPosition(pos)
+      if st==QtMultimedia.QMediaPlayer.PlayingState:        
+        self._player.play()
+      continue
       
-     b=self.get_tags(f)
-     # if b!= None:
-     a=str(i+1)
-     # self._player.playlist().media(i)
-     # print(self._player.playlist().currentIndex())
-     self.bd.setIndex(int(self._player.playlist().currentIndex()))
-     if i==int(self._player.playlist().currentIndex()):
-      a=">"
+    b=self.get_tags(f)
+    a=str(k)
+    self.bd.setIndex(int(self._player.playlist().currentIndex()))
+    if k-1==int(self._player.playlist().currentIndex()):
+     a=">"
     
     #  a1=QtGui.QStandardItem(a)
      
-     a3=QtGui.QStandardItem("%s (%s)"%(b[1], b[3]))
-     a4=QtGui.QStandardItem("%s"%b[2])    
-     a5=0
-     try:
-      f=mutagen.File(f)
-      a5=int(f.info.length)
-     except:
-      pass
+    a3=QtGui.QStandardItem("%s [%s]"%(b[1], b[3]))
+    a4=QtGui.QStandardItem("%s"%b[2])    
+    a5=0
+    try:
+     f=mutagen.File(f)
+     a5=int(f.info.length)
+    except:
+     pass
 
-     all+=a5
-    #  a51=QtGui.QStandardItem("%s"%time.strftime("%M:%S", time.gmtime(a5))) 
-     a1=QtGui.QStandardItem("%s"%a)
-     a2=QtGui.QStandardItem("%s (%s)"%(b[0], time.strftime("%M:%S", time.gmtime(a5))))
+    all+=a5
 
-    else:
-      a1=QtGui.QStandardItem('File is absent')
-      a2=QtGui.QStandardItem('')
-      a3=QtGui.QStandardItem('')
-      a4=QtGui.QStandardItem('')
-      # a51=QtGui.QStandardItem('Unknown')
-    # self.LV.plist.model().appendRow([a1, a2,a3,a4, a51])
+    a1=QtGui.QStandardItem("%s"%a)
+    a2=QtGui.QStandardItem("%s [%s]"%(b[0], time.strftime("%M:%S", time.gmtime(a5))))
+
+    a1.setData(self._player.playlist().media(i), QtCore.Qt.UserRole)
+    a2.setData(self._player.playlist().media(i), QtCore.Qt.UserRole)
+    a2.setData(a2.data(QtCore.Qt.DisplayRole), QtCore.Qt.ToolTipRole)
+    a3.setData(self._player.playlist().media(i), QtCore.Qt.UserRole)
+    a3.setData(a3.data(QtCore.Qt.DisplayRole), QtCore.Qt.ToolTipRole)
+    a4.setData(self._player.playlist().media(i), QtCore.Qt.UserRole)
+    a4.setData(a4.data(QtCore.Qt.DisplayRole), QtCore.Qt.ToolTipRole)
     self.LV.plist.model().appendRow([a1, a2,a3,a4])
+
+    k+=1
+
   self.LV.plist.setColumnWidth(0,30)
-  self.LV.model.setHeaderData(0, QtCore.Qt.Horizontal, "")
-  self.LV.model.setHeaderData(1, QtCore.Qt.Horizontal, "Title")
-  self.LV.model.setHeaderData(2, QtCore.Qt.Horizontal, "Album")
-  self.LV.model.setHeaderData(3, QtCore.Qt.Horizontal, "Artist")  
-  self.LV.model.setHeaderData(4, QtCore.Qt.Horizontal, "Duration")
-  # print('self.LV.plist.columnWidth(0)=', self.LV.plist.columnWidth(0))
-  
+
   self.LV.sb.showMessage(time.strftime("total running time: %H:%M:%S", time.gmtime(all)))
 
  def show_playlist(self, e=0):
@@ -536,10 +545,21 @@ class QMini(QtWidgets.QMainWindow):
   self.read_song_list()
   self.LV.show()
 
- def onDblClick(self, index):
-  print(index.row())
+ def onLVDblClick(self, index):
+  print(index)
+  
+  # i=self.LV.plist.model().createIndex(index.row(), 0)
+  # print(i)
+  item=self.LV.plist.model().itemFromIndex(index)
+  # print(item)
+  # print( )
+  r=item.data(QtCore.Qt.UserRole)
   self._player.stop()
   # print(index)
+  
+  print(r)
+  # self._player.setMedia(r)
+  #  .setCurrentIndex(item)
   self._player.playlist().setCurrentIndex(index.row())
   # self.songs.setCurrentIndex(index.row())
   self._player.play()
